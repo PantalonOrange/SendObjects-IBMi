@@ -1,0 +1,11 @@
+ Pgm ( &Save &File )
+
+   Dcl &Save *Char Len( 64)
+   Dcl &File *Char Len( 64)
+
+   RmvLnk &File
+     MonMsg CPF0000
+
+   CpyToStmF &Save &File StmFOpt(*Replace)
+
+ EndPgm

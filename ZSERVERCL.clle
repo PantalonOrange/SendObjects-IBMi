@@ -1,0 +1,15 @@
+ Pgm ( &Save &File )
+
+   Dcl &Save *Char Len( 64)
+   Dcl &File *Char Len( 64)
+
+   DltF QTEMP/RCV
+     MonMsg CPF0000
+   CrtSavF QTEMP/RCV
+
+   CpyFrmStmF &File &Save MbrOpt(*Replace)
+
+   RmvLnk &File
+     MonMsg CPF0000
+
+ EndPgm
