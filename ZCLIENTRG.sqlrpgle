@@ -41,8 +41,8 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   Port UNS(5) CONST;
 END-PR;
 
-/INCLUDE QRPGLECPY,SOCKET_H
-/INCLUDE QRPGLECPY,SOCKAPI_H
+/INCLUDE SOCKET_H
+//INCLUDE QRPGLECPY,SOCKAPI_H
 DCL-PR System INT(10) EXTPROC('system');
   *N POINTER VALUE OPTIONS(*STRING);
 END-PR;
@@ -65,12 +65,12 @@ DCL-PR SendStatus;
   Message CHAR(256) CONST;
 END-PR;
 
-/INCLUDE *LIBL/QRPGLECPY,CONSTKEYS
+//INCLUDE *LIBL/QRPGLECPY,CONSTKEYS
 DCL-C TRUE  *ON;
 DCL-C FALSE *OFF;
 
-/INCLUDE QRPGLECPY,ERRNO_H
-/INCLUDE QRPGLECPY,PSDS
+/INCLUDE ERRNO_H
+//INCLUDE QRPGLECPY,PSDS
 
 
 //#########################################################################
@@ -213,7 +213,8 @@ DCL-PROC ManageSendingStuff;
  // Connect to host
  If ( Connect(SocketID :ConnectTo :AddressLength) < 0 );
    Err = ErrNo;
-   Close_Socket(SocketID);
+   //Close_Socket(SocketID);
+   CALLP Close(SocketID);
    SendDie('connect(): ' + %Str(StrError(Err)));
    Return;
  EndIf;
@@ -225,7 +226,8 @@ DCL-PROC ManageSendingStuff;
  Send(SocketID :%Addr(Data) :%Len(%TrimR(Data)) :0);
  rc = Recv(SocketID :%Addr(Data) :%Size(Data) :0);
  If ( rc <= 0 );
-   Close_Socket(SocketID);
+   //Close_Socket(SocketID);
+   CALLP Close(SocketID);
    SendDie('Login failed.');
    Return;
  EndIf;
@@ -234,15 +236,18 @@ DCL-PROC ManageSendingStuff;
  Data = %SubSt(Data :1 :%Scan('>' :Data));
  Select;
    When ( Data = '*NOLOGINDATA>' );
-     Close_Socket(SocketID);
+     //Close_Socket(SocketID);
+     CALLP Close(SocketID);
      SendDie('No login data recieved.');
      Return;
    When ( Data = '*NOPWD>' );
-     Close_Socket(SocketID);
+     //Close_Socket(SocketID);
+     CALLP Close(SocketID);
      SendDie('Wrong password > ' + %TrimR(Work));
      Return;
    When ( Data = '*NOACCESS>' );
-     Close_Socket(SocketID);
+     //Close_Socket(SocketID);
+     CALLP Close(SocketID);
      SendDie('Access denied > ' + %TrimR(Work));
      Return;
    When ( Data = '*OK>' );
@@ -272,7 +277,8 @@ DCL-PROC ManageSendingStuff;
  Monitor;
    EC#ZCLIENT(P_SAVE :P_FILE);
    On-Error;
-     Close_Socket(SocketID);
+     //Close_Socket(SocketID);
+     CALLP Close(SocketID);
      IFS_Unlink(P_FILE);
      System('DLTF FILE(QTEMP/SND)');
      SendDie('Error occured while preparing savefile. See joblog.');
@@ -298,7 +304,8 @@ DCL-PROC ManageSendingStuff;
  fd = IFS_Open(P_FILE :O_RDONLY + O_TEXTDATA + O_LARGEFILE);
  If ( fd < 0 );
    Err = ErrNo;
-   Close_Socket(SocketID);
+   //Close_Socket(SocketID);
+   CALLP Close(SocketID);
    IFS_Unlink(P_FILE);
    SendDie('Error while reading file > ' + %Str(StrError(Err)));
    Return;
@@ -326,7 +333,8 @@ DCL-PROC ManageSendingStuff;
  rc = Recv(SocketID :%Addr(Data) :%Size(Data) :0);
  Select;
    When ( %Scan('*ERROR_RESTORE>' :Data) > 0 );
-     Close_Socket(SocketID);
+     //Close_Socket(SocketID);
+     CALLP Close(SocketID);
      SendDie('Error: ' + %SubSt(Data :%Scan('>' :Data) + 1 :60));
      Return;
    When ( %Scan('*OK>' :Data) > 0 );
@@ -334,7 +342,8 @@ DCL-PROC ManageSendingStuff;
      System('DLTF FILE(QTEMP/SND)');
  EndSl;
 
- Close_Socket(SocketID);
+ //Close_Socket(SocketID);
+ CALLP Close(SocketID);
 
  Return;
 
@@ -412,4 +421,4 @@ DCL-PROC SendStatus;
 END-PROC;
 
 /DEFINE ERRNO_LOAD_PROCEDURE
-/INCLUDE QRPGLECPY,ERRNO_H
+/INCLUDE ERRNO_H

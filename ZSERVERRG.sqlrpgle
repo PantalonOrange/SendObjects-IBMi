@@ -33,8 +33,8 @@ DCL-PR Main EXTPGM('ZSERVERRG');
   Port UNS(5) CONST;
 END-PR;
 
-/INCLUDE QRPGLECPY,SOCKET_H
-/INCLUDE QRPGLECPY,SOCKAPI_H
+/INCLUDE SOCKET_H
+//INCLUDE QRPGLECPY,SOCKAPI_H
 DCL-PR System INT(10) EXTPROC('system');
   *N POINTER VALUE OPTIONS(*STRING);
 END-PR;
@@ -56,7 +56,7 @@ DCL-C P_FILE '/tmp/rcv.file';
 DCL-C TRUE *ON;
 DCL-C FALSE *OFF;
 
-/INCLUDE *LIBL/QRPGLECPY,ERRNO_H
+/INCLUDE ERRNO_H
 DCL-S Loop IND INZ(TRUE);
 DCL-S Length INT(10) INZ;
 DCL-S BindTo POINTER;
@@ -96,7 +96,8 @@ DCL-PROC Main;
    EndMon;
 
    CleanTemp();
-   Close_Socket(CSock);
+   //Close_Socket(CSock);
+   CALLP Close(CSock);
 
  EndDo;
 
@@ -107,7 +108,8 @@ DCL-PROC CheckShutDown;
 
  If ( %ShtDn() );
    Loop = FALSE;
-   Close_Socket(CSock);
+   //Close_Socket(CSock);
+   CALLP Close(CSock);
  EndIf;
 
 END-PROC;
@@ -139,7 +141,8 @@ DCL-PROC MakeListener;
 
  If ( Bind(LSock :BindTo :Length) < 0 );
    ErrNumber = ErrNo;
-   Close_Socket(LSock);
+   //Close_Socket(LSock);
+   CALLP Close(LSock);
    SendDie('bind():' + %Str(StrError(ErrNumber)));
    Return;
  EndIf;
@@ -147,7 +150,8 @@ DCL-PROC MakeListener;
  // Indicate that we want to listen for connections
  If ( Listen(LSock :5) < 0 );
    ErrNumber = ErrNo;
-   Close_Socket(LSock);
+   //Close_Socket(LSock);
+   CALLP Close(LSock);
    SendDie('listen():' + %Str(StrError(ErrNumber)));
    Return;
  EndIf;
@@ -163,13 +167,15 @@ DCL-PROC AcceptConnection;
    CSock  = Accept(LSock :ConnectFrom :Length);
    If ( CSock < 0 );
      ErrNumber = ErrNo;
-     Close_Socket(LSock);
+     //Close_Socket(LSock);
+     CALLP Close(LSock);
      SendDie('accept():' + %Str(StrError(ErrNumber)));
      Return;
    EndIf;
 
    If ( Length <> %Size(SockAddr_In));
-     Close_Socket(CSock);
+     //Close_Socket(CSock);
+     CALLP Close(CSock);
    EndIf;
 
  EndDo;
@@ -398,4 +404,4 @@ END-PROC;
 
 //#########################################################################
 /DEFINE ERRNO_LOAD_PROCEDURE
-/INCLUDE QRPGLECPY,ERRNO_H
+/INCLUDE ERRNO_H
