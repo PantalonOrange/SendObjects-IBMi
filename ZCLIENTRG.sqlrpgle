@@ -73,7 +73,6 @@ DCL-C FALSE *OFF;
 /INCLUDE ERRNO_H
 //INCLUDE QRPGLECPY,PSDS
 
-
 //#########################################################################
 DCL-PROC Main;
  DCL-PI *N;

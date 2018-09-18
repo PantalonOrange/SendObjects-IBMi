@@ -1,6 +1,6 @@
 BIN_LIB=SENDOBJECT
 
-all: build clean
+all: clean build clean
 
 build:
 	system "CRTSRCPF FILE($(BIN_LIB)/QSOURCE) RCDLEN(112)"

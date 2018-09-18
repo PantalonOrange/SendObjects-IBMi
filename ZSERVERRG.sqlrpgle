@@ -75,7 +75,6 @@ DCL-DS ErrorDS_Template QUALIFIED TEMPLATE;
   MsgData CHAR(512);
 END-DS;
 
-
 //#########################################################################
 DCL-PROC Main;
  DCL-PI *N;
@@ -245,6 +244,7 @@ DCL-PROC HandleClient;
  DCL-S OldUser CHAR(10) INZ;
  DCL-S UserLength INT(10) INZ(10);
  DCL-S UserCCSID INT(10) INZ(37);
+ DCL-S Bytes UNS(20) INZ;
 
  DCL-DS ErrorDS LIKEDS(ErrorDS_Template);
 //-------------------------------------------------------------------------
@@ -292,9 +292,17 @@ DCL-PROC HandleClient;
  fd = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_CODEPAGE + O_LARGEFILE
                :S_IRWXU + S_IRWXG + S_IRWXO :1141);
 
+ bytes = 0;
  DoW ( Loop ) And ( fd >= 0 );
    sr = Recv(CSock :%Addr(File) :%Size(File) :0);
-   If ( sr <= 0 ) Or ( File = '*EOF>' );
+   bytes += sr;
+   If ( sr <= 0 );
+     IFS_Close(fd);
+     Leave;
+   EndIf;
+   If ( %Subst(File:sr-4:5) = '*EOF>' );
+     sr -= 5;
+     rc = IFS_Write(fd :%Addr(File) :sr);
      IFS_Close(fd);
      Leave;
    EndIf;
