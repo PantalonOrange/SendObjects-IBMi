@@ -26,8 +26,9 @@
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
-CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES)
-        BNDDIR('SOCKAPI') MAIN(Main);
+//CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES)
+//        BNDDIR('SOCKAPI') MAIN(Main);
+CTL-OPT DEBUG(*YES) BNDDIR('SOCKAPI') MAIN(Main);
 
 DCL-PR Main EXTPGM('ZSERVERRG');
   Port UNS(5) CONST;
@@ -204,7 +205,7 @@ DCL-PROC HandleClient;
  END-PR;
  DCL-PR EC#QSYGETPH EXTPGM('QSYGETPH');
    User     CHAR(10) CONST;
-   Password CHAR(10) CONST;
+   Password CHAR(32) CONST;
    pHandler CHAR(12);
    Error    CHAR(32766) OPTIONS(*VARSIZE :*NOPASS);
    Length   INT(10) CONST OPTIONS(*NOPASS);
@@ -239,7 +240,7 @@ DCL-PROC HandleClient;
  DCL-S Restore CHAR(1024) INZ;
  DCL-S File CHAR(32766) INZ;
  DCL-S User CHAR(10) INZ;
- DCL-S Password CHAR(10) INZ;
+ DCL-S Password CHAR(32) INZ;
  DCL-S UserHandler CHAR(12) INZ;
  DCL-S OldUser CHAR(10) INZ;
  DCL-S UserLength INT(10) INZ(10);

@@ -26,8 +26,9 @@
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
-CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES)
-        BNDDIR('SOCKAPI') MAIN(Main);
+//CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES)
+//        BNDDIR('SOCKAPI') MAIN(Main);
+CTL-OPT DEBUG(*YES) BNDDIR('SOCKAPI') MAIN(Main);
 
 DCL-PR Main EXTPGM('ZCLIENTRG');
   ObjectName CHAR(10) CONST;
@@ -35,7 +36,7 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   ObjectType CHAR(10) CONST;
   Host CHAR(16) CONST;
   User CHAR(10) CONST;
-  Password CHAR(10) CONST;
+  Password CHAR(32) CONST;
   TargetRelease CHAR(8) CONST;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
@@ -53,7 +54,7 @@ DCL-PR ManageSendingStuff;
   ObjectType CHAR(10) CONST;
   Host CHAR(16) CONST;
   User CHAR(10) CONST;
-  Password CHAR(10) CONST;
+  Password CHAR(32) CONST;
   TargetRelease CHAR(8) CONST;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
@@ -81,7 +82,7 @@ DCL-PROC Main;
    pObjectType CHAR(10) CONST;
    pHost CHAR(16) CONST;
    pUser CHAR(10) CONST;
-   pPassword CHAR(10) CONST;
+   pPassword CHAR(32) CONST;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
@@ -108,7 +109,7 @@ DCL-PROC ManageSendingStuff;
    pObjectType CHAR(10) CONST;
    pHost CHAR(16) CONST;
    pUser CHAR(10) CONST;
-   pPassword CHAR(10) CONST;
+   pPassword CHAR(32) CONST;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
