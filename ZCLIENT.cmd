@@ -1,16 +1,14 @@
              CMD        PROMPT('Send objects') TEXT('Send objects')
 
              PARM       KWD(OBJECT) TYPE(*NAME) LEN(10) MIN(1) +
-                          CHOICE('Objectname') +
-                          PROMPT('Obect')
+                          CHOICE('Object name') PROMPT('Object')
 
              PARM       KWD(LIB) TYPE(*SNAME) LEN(10) DFT(*LIBL) +
                           SPCVAL((*LIBL '*LIBL')) CHOICE('Library') +
                           PROMPT('Library')
 
              PARM       KWD(OBJTYPE) TYPE(*CHAR) LEN(10) DFT(*ALL) +
-                          CHOICE('Objecttype, *ALL') +
-                          PROMPT('Objecttype')
+                          CHOICE('Object type, *ALL') PROMPT('Object type')
 
              PARM       KWD(HOST) TYPE(*CHAR) LEN(16) +
                           CHOICE('IP-Adress or Hostname') +
@@ -20,9 +18,9 @@
                           CHOICE('Username on IBMi') +
                           PROMPT('IBMi-User')
 
-             PARM       KWD(PASS) TYPE(*NAME) LEN(10) DSPINPUT(*NO) +
-                          CHOICE('Password') +
-                          PROMPT('IBMi-Password')
+             PARM       KWD(PASS) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
+                          DSPINPUT(*NO) PROMPT('IBMi-Password') +
+                          CHOICE('Password')
 
              PARM       KWD(TGTRLS) TYPE(*CHAR) LEN(8) RSTD(*YES) +
                           DFT(*CURRENT) VALUES(*CURRENT *PRV) +

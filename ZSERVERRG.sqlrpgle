@@ -26,15 +26,16 @@
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
-CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES)
-        BNDDIR('SOCKAPI') MAIN(Main);
+//CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES)
+//        BNDDIR('SOCKAPI') MAIN(Main);
+CTL-OPT DEBUG(*YES) BNDDIR('SOCKAPI') MAIN(Main);
 
 DCL-PR Main EXTPGM('ZSERVERRG');
   Port UNS(5) CONST;
 END-PR;
 
-/INCLUDE QRPGLECPY,SOCKET_H
-/INCLUDE QRPGLECPY,SOCKAPI_H
+/INCLUDE SOCKET_H
+//INCLUDE QRPGLECPY,SOCKAPI_H
 DCL-PR System INT(10) EXTPROC('system');
   *N POINTER VALUE OPTIONS(*STRING);
 END-PR;
@@ -56,7 +57,7 @@ DCL-C P_FILE '/tmp/rcv.file';
 DCL-C TRUE *ON;
 DCL-C FALSE *OFF;
 
-/INCLUDE *LIBL/QRPGLECPY,ERRNO_H
+/INCLUDE ERRNO_H
 DCL-S Loop IND INZ(TRUE);
 DCL-S Length INT(10) INZ;
 DCL-S BindTo POINTER;
@@ -73,7 +74,6 @@ DCL-DS ErrorDS_Template QUALIFIED TEMPLATE;
   Reserved1 CHAR(1);
   MsgData CHAR(512);
 END-DS;
-
 
 //#########################################################################
 DCL-PROC Main;
@@ -96,7 +96,8 @@ DCL-PROC Main;
    EndMon;
 
    CleanTemp();
-   Close_Socket(CSock);
+   //Close_Socket(CSock);
+   CALLP Close(CSock);
 
  EndDo;
 
@@ -107,7 +108,8 @@ DCL-PROC CheckShutDown;
 
  If ( %ShtDn() );
    Loop = FALSE;
-   Close_Socket(CSock);
+   //Close_Socket(CSock);
+   CALLP Close(CSock);
  EndIf;
 
 END-PROC;
@@ -139,7 +141,8 @@ DCL-PROC MakeListener;
 
  If ( Bind(LSock :BindTo :Length) < 0 );
    ErrNumber = ErrNo;
-   Close_Socket(LSock);
+   //Close_Socket(LSock);
+   CALLP Close(LSock);
    SendDie('bind():' + %Str(StrError(ErrNumber)));
    Return;
  EndIf;
@@ -147,7 +150,8 @@ DCL-PROC MakeListener;
  // Indicate that we want to listen for connections
  If ( Listen(LSock :5) < 0 );
    ErrNumber = ErrNo;
-   Close_Socket(LSock);
+   //Close_Socket(LSock);
+   CALLP Close(LSock);
    SendDie('listen():' + %Str(StrError(ErrNumber)));
    Return;
  EndIf;
@@ -163,13 +167,15 @@ DCL-PROC AcceptConnection;
    CSock  = Accept(LSock :ConnectFrom :Length);
    If ( CSock < 0 );
      ErrNumber = ErrNo;
-     Close_Socket(LSock);
+     //Close_Socket(LSock);
+     CALLP Close(LSock);
      SendDie('accept():' + %Str(StrError(ErrNumber)));
      Return;
    EndIf;
 
    If ( Length <> %Size(SockAddr_In));
-     Close_Socket(CSock);
+     //Close_Socket(CSock);
+     CALLP Close(CSock);
    EndIf;
 
  EndDo;
@@ -198,7 +204,7 @@ DCL-PROC HandleClient;
  END-PR;
  DCL-PR EC#QSYGETPH EXTPGM('QSYGETPH');
    User     CHAR(10) CONST;
-   Password CHAR(10) CONST;
+   Password CHAR(32) CONST;
    pHandler CHAR(12);
    Error    CHAR(32766) OPTIONS(*VARSIZE :*NOPASS);
    Length   INT(10) CONST OPTIONS(*NOPASS);
@@ -233,11 +239,12 @@ DCL-PROC HandleClient;
  DCL-S Restore CHAR(1024) INZ;
  DCL-S File CHAR(32766) INZ;
  DCL-S User CHAR(10) INZ;
- DCL-S Password CHAR(10) INZ;
+ DCL-S Password CHAR(32) INZ;
  DCL-S UserHandler CHAR(12) INZ;
  DCL-S OldUser CHAR(10) INZ;
  DCL-S UserLength INT(10) INZ(10);
  DCL-S UserCCSID INT(10) INZ(37);
+ DCL-S Bytes UNS(20) INZ;
 
  DCL-DS ErrorDS LIKEDS(ErrorDS_Template);
 //-------------------------------------------------------------------------
@@ -285,9 +292,17 @@ DCL-PROC HandleClient;
  fd = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_CODEPAGE + O_LARGEFILE
                :S_IRWXU + S_IRWXG + S_IRWXO :1141);
 
+ bytes = 0;
  DoW ( Loop ) And ( fd >= 0 );
    sr = Recv(CSock :%Addr(File) :%Size(File) :0);
-   If ( sr <= 0 ) Or ( File = '*EOF>' );
+   bytes += sr;
+   If ( sr <= 0 );
+     IFS_Close(fd);
+     Leave;
+   EndIf;
+   If ( %Subst(File:sr-4:5) = '*EOF>' );
+     sr -= 5;
+     rc = IFS_Write(fd :%Addr(File) :sr);
      IFS_Close(fd);
      Leave;
    EndIf;
@@ -398,4 +413,4 @@ END-PROC;
 
 //#########################################################################
 /DEFINE ERRNO_LOAD_PROCEDURE
-/INCLUDE QRPGLECPY,ERRNO_H
+/INCLUDE ERRNO_H

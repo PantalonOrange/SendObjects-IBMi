@@ -1,0 +1,12 @@
+             STRPGMEXP  PGMLVL(*CURRENT)
+                 EXPORT     SYMBOL(RDLINE)
+                 EXPORT     SYMBOL(WRLINE)
+                 EXPORT     SYMBOL(FD_SET)
+                 EXPORT     SYMBOL(FD_CLR)
+                 EXPORT     SYMBOL(FD_ISSET)
+                 EXPORT     SYMBOL(FD_ZERO)
+             ENDPGMEXP
+             STRPGMEXP  PGMLVL(*PRV)
+                 EXPORT     SYMBOL(RDLINE)
+                 EXPORT     SYMBOL(WRLINE)
+             ENDPGMEXP
