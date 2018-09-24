@@ -76,7 +76,7 @@
 
 /* Compile ZCLIENT */
              IF         COND(&SUCCESS = '1') THEN(DO)
-             CRTCMD     CMD(&LIB/ZCLIENT) PGM(&LIB/ZSERVERRG) +
+             CRTCMD     CMD(&LIB/ZCLIENT) PGM(&LIB/ZCLIENTRG) +
                           SRCFILE(&LIB/QCMDSRC) PRDLIB(&LIB)
              MONMSG     MSGID(CPF0000) EXEC(DO)
              CHGVAR     VAR(&SUCCESS) VALUE('0')
