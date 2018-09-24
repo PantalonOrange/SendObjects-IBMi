@@ -28,7 +28,7 @@
 
              PARM       KWD(RSTLIB) TYPE(*NAME) LEN(10) DFT(*SAVLIB) +
                           SPCVAL((*SAVLIB *SAVLIB)) +
-						  PROMPT('Restore in following library')
+			  PROMPT('Restore in following library')
 
              PARM       KWD(PORT) TYPE(*DEC) LEN(5) DFT(19335) +
                           RANGE(1 65535) PROMPT('Port')
