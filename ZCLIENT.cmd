@@ -20,8 +20,8 @@
                           CHOICE('Username on IBMi') +
                           PROMPT('IBMi-User')
 
-             PARM       KWD(PASS) TYPE(*NAME) LEN(10) DSPINPUT(*NO) +
-                          CHOICE('Password') +
+             PARM       KWD(PASS) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
+	                  DSPINPUT(*NO) CHOICE('Password') +
                           PROMPT('IBMi-Password')
 
              PARM       KWD(TGTRLS) TYPE(*CHAR) LEN(8) RSTD(*YES) +
@@ -30,7 +30,7 @@
 
              PARM       KWD(RSTLIB) TYPE(*NAME) LEN(10) DFT(*SAVLIB) +
                           SPCVAL((*SAVLIB *SAVLIB)) +
-						  PROMPT('Restore in following library')
+			  PROMPT('Restore in following library')
 
              PARM       KWD(PORT) TYPE(*DEC) LEN(5) DFT(19335) +
                           RANGE(1 65535) PROMPT('Port')
