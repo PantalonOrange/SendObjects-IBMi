@@ -1,4 +1,6 @@
 **FREE
+/if not defined (#API_QMHSNDPM)
+/define #API_QMHSNDPM
 DCL-PR SndPgmMsg EXTPGM('QMHSNDPM');
   MessageID CHAR(7) CONST;
   QualMsgFile CHAR(20) CONST;
@@ -10,3 +12,4 @@ DCL-PR SndPgmMsg EXTPGM('QMHSNDPM');
   MessageKey CHAR(4);
   ErrorCode CHAR(128);
 END-PR;
+/endif
