@@ -2,6 +2,7 @@
 
              DCLPRCOPT  USRPRF(*OWNER) AUT(*USE) DFTACTGRP(*NO) +
                           ACTGRP(*NEW)
+
              DCL        VAR(&LIB) TYPE(*CHAR) LEN(10)
              DCL        VAR(&SUCCESS) TYPE(*LGL) VALUE('1')
 

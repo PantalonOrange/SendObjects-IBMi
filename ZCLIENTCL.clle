@@ -1,11 +1,14 @@
- Pgm ( &Save &File )
+             PGM        PARM(&SAVE &FILE)
 
-   Dcl &Save *Char Len( 64)
-   Dcl &File *Char Len( 64)
+             DCLPRCOPT  USRPRF(*OWNER) AUT(*USE) STGMDL(*TERASPACE) +
+                          DFTACTGRP(*NO) ACTGRP(*CALLER)
 
-   RmvLnk &File
-     MonMsg CPF0000
+             DCL        VAR(&SAVE) TYPE(*CHAR) LEN(64)
+             DCL        VAR(&FILE) TYPE(*CHAR) LEN(64)
 
-   CpyToStmF &Save &File StmFOpt(*Replace)
+             RMVLNK     OBJLNK(&FILE)
+             MONMSG     MSGID(CPF0000)
 
- EndPgm
+             CPYTOSTMF  FROMMBR(&SAVE) TOSTMF(&FILE) STMFOPT(*REPLACE)
+
+             ENDPGM

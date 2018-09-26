@@ -21,17 +21,15 @@
 
 // 00000000 BRC 30.08.2018
 
-// Socketclient to send objects to another IBMi
+// Socketclient with or without tls/ssl to send objects to another IBMi
 //   Based on the socketapi from scott klement - (c) Scott Klement
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
-CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES)
-        BNDDIR('SOCKAPI') MAIN(Main);
+CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES) MAIN(Main);
 
 DCL-PR Main EXTPGM('ZCLIENTRG');
-  ObjectName CHAR(10) CONST;
-  ObjectLibrary CHAR(10) CONST;
+  QualifiedObjectName CHAR(20) CONST;
   ObjectType CHAR(10) CONST;
   Host CHAR(16) CONST;
   User CHAR(10) CONST;
@@ -39,17 +37,16 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   TargetRelease CHAR(8) CONST;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
+  UseSSL CHAR(4) CONST;
 END-PR;
 
 /INCLUDE QRPGLECPY,SOCKET_H
-/INCLUDE QRPGLECPY,SOCKAPI_H
-DCL-PR System INT(10) EXTPROC('system');
-  *N POINTER VALUE OPTIONS(*STRING);
-END-PR;
+/INCLUDE QRPGLECPY,GSKSSL_H
+/INCLUDE QRPGLECPY,QMHSNDPM
+/INCLUDE QRPGLECPY,SYSTEM
 
 DCL-PR ManageSendingStuff;
-  ObjectName CHAR(10) CONST;
-  ObjectLibrary CHAR(10) CONST;
+  QualifiedObjectName CHAR(20) CONST;
   ObjectType CHAR(10) CONST;
   Host CHAR(16) CONST;
   User CHAR(10) CONST;
@@ -57,6 +54,21 @@ DCL-PR ManageSendingStuff;
   TargetRelease CHAR(8) CONST;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
+  UseSSL CHAR(4) CONST;
+END-PR;
+DCL-PR GenerateGSKEnvironment END-PR;
+DCL-PR SendData INT(10);
+  Socket INT(10) CONST;
+  Data POINTER VALUE;
+  Length INT(10) CONST;
+END-PR;
+DCL-PR RecieveData INT(10);
+  Socket INT(10) CONST;
+  Data POINTER VALUE;
+  Length INT(10) VALUE;
+END-PR;
+DCL-PR CleanUp_Socket;
+  SocketHandler INT(10) CONST;
 END-PR;
 DCL-PR SendDie;
   Message CHAR(256) CONST;
@@ -69,14 +81,16 @@ DCL-C TRUE  *ON;
 DCL-C FALSE *OFF;
 
 /INCLUDE QRPGLECPY,ERRNO_H
-/INCLUDE QRPGLECPY,PSDS
+
+ DCL-S UseSSL IND INZ(FALSE);
+ DCL-S GSKEnvironment POINTER INZ;
+ DCL-S GSKHandler POINTER INZ;
 
 
 //#########################################################################
 DCL-PROC Main;
  DCL-PI *N;
-   pObjectName CHAR(10) CONST;
-   pObjectLibrary CHAR(10) CONST;
+   pQualifiedObjectName CHAR(20) CONST;
    pObjectType CHAR(10) CONST;
    pHost CHAR(16) CONST;
    pUser CHAR(10) CONST;
@@ -84,14 +98,15 @@ DCL-PROC Main;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
+   pUseSSL CHAR(4) CONST;
  END-PI;
-//-------------------------------------------------------------------------
+ //-------------------------------------------------------------------------
 
  *INLR = TRUE;
 
- If ( %Parms() = 9 ) Or ( pObjectName <> '' );
-   ManageSendingStuff(pObjectName :pObjectLibrary :pObjectType :pHost :pUser
-                      :pPassword :pTargetRelease :pRestoreLibrary :pPort);
+ If ( %Parms() = 9 ) And ( pQualifiedObjectName <> '' );
+   ManageSendingStuff(pQualifiedObjectName :pObjectType :pHost :pUser
+                      :pPassword :pTargetRelease :pRestoreLibrary :pPort :pUseSSL);
  EndIf;
 
  Return;
@@ -102,8 +117,7 @@ END-PROC;
 //**************************************************************************
 DCL-PROC ManageSendingStuff;
  DCL-PI *N;
-   pObjectName CHAR(10) CONST;
-   pObjectLibrary CHAR(10) CONST;
+   pQualifiedObjectName CHAR(20) CONST;
    pObjectType CHAR(10) CONST;
    pHost CHAR(16) CONST;
    pUser CHAR(10) CONST;
@@ -111,6 +125,7 @@ DCL-PROC ManageSendingStuff;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
+   pUseSSL CHAR(4) CONST;
  END-PI;
 
  DCL-PR IFS_Open INT(10) EXTPROC('open');
@@ -139,48 +154,58 @@ DCL-PROC ManageSendingStuff;
    File CHAR(64) CONST;
  END-PR;
 
- DCL-C O_RDONLY    1;
- DCL-C O_WRONLY    2;
- DCL-C O_CREAT     8;
- DCL-C O_TRUNC     64;
- DCL-C O_TEXTDATA  16777216;
- DCL-C O_CODEPAGE  8388608;
+ DCL-C O_RDONLY 1;
+ DCL-C O_WRONLY 2;
+ DCL-C O_CREAT 8;
+ DCL-C O_TRUNC 64;
+ DCL-C O_TEXTDATA 16777216;
+ DCL-C O_CODEPAGE 8388608;
  DCL-C O_LARGEFILE 536870912;
  DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/SND.FILE';
  DCL-C P_FILE '/tmp/snd.file';
 
- DCL-S KEY CHAR(10) INZ('1234567890');
+ DCL-S KEY CHAR(40) INZ('your_key');
  DCL-S Loop IND INZ(TRUE);
 
- DCL-S fd INT(10) INZ;
- DCL-S rc INT(10) INZ;
+ DCL-S FD INT(10) INZ;
+ DCL-S RC INT(10) INZ;
  DCL-S Data CHAR(1024) INZ;
  DCL-S Work CHAR(1024) INZ;
  DCL-S SaveCommand CHAR(1024) INZ;
  DCL-S File CHAR(32766) INZ;
  DCL-S Bytes UNS(20) INZ;
  DCL-S ConnectTo POINTER INZ;
- DCL-S SocketID INT(10) INZ;
+ DCL-S LocalSocket INT(10) INZ;
  DCL-S Address UNS(10) INZ;
  DCL-S AddressLength INT(10) INZ;
- DCL-S Err INT(10) INZ;
-//-------------------------------------------------------------------------
+ DCL-S ErrNumber INT(10) INZ;
+
+ DCL-DS QualifiedObjectName QUALIFIED INZ;
+   ObjectName CHAR(10);
+   ObjectLibrary CHAR(10);
+ END-DS;
+ //-------------------------------------------------------------------------
+
+ QualifiedObjectName = pQualifiedObjectName;
 
  // Check for selected object
  Select;
-   When ( pObjectType = '*ALL' ) Or ( %Scan('*' :pObjectName) > 0 );
-     Clear rc;
+   When ( pObjectType = '*ALL' ) Or ( %Scan('*' :QualifiedObjectName.ObjectName) > 0 );
+     Clear RC;
    When ( pObjectType = '*LIB' );
-     rc = System('CHKOBJ OBJ(' + %TrimR(pObjectName) + ') OBJTYPE(*LIB)');
+     RC = System('CHKOBJ OBJ(' + %TrimR(QualifiedObjectName.ObjectName) + ') OBJTYPE(*LIB)');
    Other;
-     rc = System('CHKOBJ OBJ(' + %TrimR(pObjectLibrary) + '/' + %TrimR(pObjectName) +
-                  ') OBJTYPE(' + %TrimR(pObjectType) + ')');
+     RC = System('CHKOBJ OBJ(' + %TrimR(QualifiedObjectName.ObjectLibrary) + '/' +
+                  %TrimR(QualifiedObjectName.ObjectName) + ') OBJTYPE(' +
+                  %TrimR(pObjectType) + ')');
  EndSl;
 
- If ( rc <> 0 );
+ If ( RC <> 0 );
    SendDie('Object(s) not found.');
    Return;
  EndIf;
+
+ UseSSL = ( pUseSSL = '*YES' );
 
  // Search adress via hostname
  Address = INet_Addr(%TrimR(pHost));
@@ -193,11 +218,15 @@ DCL-PROC ManageSendingStuff;
    Address = H_Addr;
  EndIf;
 
+ If UseSSL;
+   GenerateGSKEnvironment();
+ EndIf;
+
  // Create socket
- SocketID = Socket(AF_INET :SOCK_STREAM :IPPROTO_IP);
- If ( SocketID < 0 );
+ LocalSocket = Socket(AF_INET :SOCK_STREAM :IPPROTO_IP);
+ If ( LocalSocket < 0 );
+   CleanUp_Socket(LocalSocket);
    SendDie('socket(): ' + %Str(StrError(ErrNo)));
-   Return;
  EndIf;
 
  AddressLength = %Size(SockAddr);
@@ -207,43 +236,65 @@ DCL-PROC ManageSendingStuff;
  Sin_Family = AF_INET;
  Sin_Addr = Address;
  Sin_Port = pPort;
- Sin_Zero = *ALLX'00';
+ Sin_Zero = *ALLx'00';
 
  // Connect to host
- If ( Connect(SocketID :ConnectTo :AddressLength) < 0 );
-   Err = ErrNo;
-   Close_Socket(SocketID);
-   SendDie('connect(): ' + %Str(StrError(Err)));
-   Return;
+ If ( Connect(LocalSocket :ConnectTo :AddressLength) < 0 );
+   ErrNumber = ErrNo;
+   CleanUp_Socket(LocalSocket);
+   SendDie('connect(): ' + %Str(StrError(ErrNumber)));
  EndIf;
 
- // Send data to host
+ If UseSSL;
+ // Open SSL/TLS with handshake
+   RC = GSK_Secure_Soc_Open(GSKEnvironment :GSKHandler);
+   If ( RC <> GSK_OK );
+     CleanUp_Socket(LocalSocket);
+     SendDie('GSK_Secure_Soc_Open(): ' + %Str(GSK_StrError(RC)));
+   EndIf;
+
+   RC = GSK_Attribute_Set_Numeric_Value(GSKHandler :GSK_FD :LocalSocket);
+   If ( RC <> GSK_OK );
+     CleanUp_Socket(LocalSocket);
+     SendDie('GSK_Attribute_Set_Numeric_Value(): ' + %Str(GSK_StrError(RC)));
+   EndIf;
+
+   RC = GSK_Attribute_Set_Numeric_Value(GSKHandler :GSK_HANDSHAKE_TIMEOUT :10);
+   If ( RC <> GSK_OK );
+     CleanUp_Socket(LocalSocket);
+     SendDie('GSK_Attribute_Set_Numeric_Value(): ' + %Str(GSK_StrError(RC)));
+   EndIf;
+
+   RC = GSK_Secure_Soc_Init(GSKHandler);
+   If ( RC <> GSK_OK );
+     CleanUp_Socket(LocalSocket);
+     SendDie('GSK_Secure_Soc_Init(): ' + %Str(GSK_StrError(RC)));
+   EndIf;
+ EndIf;
+
+ // Send username and password to host
  SendStatus('Start login at host');
- Exec SQL Set :Work = ENCRYPT_AES(:pPassword, :KEY);
+ Exec SQL SET :Work = ENCRYPT_AES(:pPassword, :Key);
  Data = pUser + %TrimR(Work);
- Send(SocketID :%Addr(Data) :%Len(%TrimR(Data)) :0);
- rc = Recv(SocketID :%Addr(Data) :%Size(Data) :0);
- If ( rc <= 0 );
-   Close_Socket(SocketID);
+ SendData(LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
+ RC = RecieveData(LocalSocket :%Addr(Data) :%Size(Data));
+ If ( RC <= 0 );
+   CleanUp_Socket(LocalSocket);
    SendDie('Login failed.');
-   Return;
  EndIf;
 
- Work = %SubSt(Data:%Scan('>' :Data) + 1 :(rc - %Scan('>' :Data)));
+ Work = %SubSt(Data:%Scan('>' :Data) + 1 :(RC - %Scan('>' :Data)));
  Data = %SubSt(Data :1 :%Scan('>' :Data));
  Select;
    When ( Data = '*NOLOGINDATA>' );
-     Close_Socket(SocketID);
+     CleanUp_Socket(LocalSocket);
      SendDie('No login data recieved.');
-     Return;
    When ( Data = '*NOPWD>' );
-     Close_Socket(SocketID);
+     CleanUp_Socket(LocalSocket);
      SendDie('Wrong password > ' + %TrimR(Work));
-     Return;
    When ( Data = '*NOACCESS>' );
-     Close_Socket(SocketID);
+     CleanUp_Socket(LocalSocket);
      SendDie('Access denied > ' + %TrimR(Work));
-     Return;
    When ( Data = '*OK>' );
      SendStatus('Login ok.');
  EndSl;
@@ -253,29 +304,30 @@ DCL-PROC ManageSendingStuff;
  System('DLTF QTEMP/SND');
  System('CRTSAVF QTEMP/SND');
  If ( pObjectType = '*LIB' );
-   SaveCommand = 'SAVLIB LIB(' + %TrimR(pObjectName) + ') DEV(*SAVF) SAVF(QTEMP/SND) ' +
-                 'TGTRLS(' + %Trim(pTargetRelease) + ') SAVACT(*LIB) DTACPR(*HIGH)';
+   SaveCommand = 'SAVLIB LIB(' + %TrimR(QualifiedObjectName.ObjectName) +
+                 ') DEV(*SAVF) SAVF(QTEMP/SND) ' + 'TGTRLS(' + %Trim(pTargetRelease) +
+                 ') SAVACT(*LIB) DTACPR(*HIGH)';
  Else;
-   SaveCommand = 'SAVOBJ OBJ(' + %TrimR(pObjectName) + ') LIB(' + %TrimR(pObjectLibrary) + ') '+
+   SaveCommand = 'SAVOBJ OBJ(' + %TrimR(QualifiedObjectName.ObjectName) + ') LIB(' +
+                 %TrimR(QualifiedObjectName.ObjectLibrary) + ') '+
                  'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) SAVF(QTEMP/SND) ' +
                  'TGTRLS(' + %TrimR(pTargetRelease) + ') SAVACT(*LIB) DTACPR(*HIGH)';
  EndIf;
- fd = System(SaveCommand);
- If ( fd < 0 );
+ FD = System(SaveCommand);
+ If ( FD < 0 );
+   CleanUp_Socket(LocalSocket);
    System('DLTF FILE(QTEMP/SND)');
    SendDie('Error while saving data. See joblog.');
-   Return;
  EndIf;
 
  SendStatus('Prepare savefile to send ...');
  Monitor;
    EC#ZCLIENT(P_SAVE :P_FILE);
    On-Error;
-     Close_Socket(SocketID);
+     CleanUp_Socket(LocalSocket);
      IFS_Unlink(P_FILE);
      System('DLTF FILE(QTEMP/SND)');
      SendDie('Error occured while preparing savefile. See joblog.');
-     Return;
  EndMon;
 
  System('DLTF QTEMP/SND');
@@ -283,60 +335,160 @@ DCL-PROC ManageSendingStuff;
  // Send restoreinformations
  SendStatus('Send objectinformations');
  If ( pObjectType = '*LIB' );
-   Data = 'RSTLIB SAVLIB(' + %TrimR(pObjectName) + ') DEV(*SAVF) SAVF(QTEMP/RCV) ' +
-          'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
+   Data = 'RSTLIB SAVLIB(' + %TrimR(QualifiedObjectName.ObjectName) +
+          ') DEV(*SAVF) SAVF(QTEMP/RCV) MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB('
+          + %TrimR(pRestoreLibrary) + ')';
  Else;
-   Data = 'RSTOBJ OBJ(' + %TrimR(pObjectName) + ') SAVLIB(' + %TrimR(pObjectLibrary) + ') ' +
+   Data = 'RSTOBJ OBJ(' + %TrimR(QualifiedObjectName.ObjectName) + ') SAVLIB(' +
+          %TrimR(QualifiedObjectName.ObjectLibrary) + ') ' +
           'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) SAVF(QTEMP/RCV) ' +
           'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
  EndIf;
- Send(SocketID :%Addr(Data) :%Len(%TrimR(Data)) :0);
+ SendData(LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
 
  // Send object
  SendStatus('Sending data to host ...');
- fd = IFS_Open(P_FILE :O_RDONLY + O_TEXTDATA + O_LARGEFILE);
- If ( fd < 0 );
-   Err = ErrNo;
-   Close_Socket(SocketID);
+ FD = IFS_Open(P_FILE :O_RDONLY + O_TEXTDATA + O_LARGEFILE);
+ If ( FD < 0 );
+   ErrNumber = ErrNo;
+   CleanUp_Socket(LocalSocket);
    IFS_Unlink(P_FILE);
-   SendDie('Error while reading file > ' + %Str(StrError(Err)));
-   Return;
+   SendDie('Error while reading file > ' + %Str(StrError(ErrNumber)));
  EndIf;
 
  DoW ( Loop );
-   rc = IFS_Read(fd :%Addr(File) :%Size(File));
-   If ( rc <= 0 );
-     IFS_Close(fd);
+   RC = IFS_Read(FD :%Addr(File) :%Size(File));
+   If ( RC <= 0 );
+     IFS_Close(FD);
      IFS_Unlink(P_FILE);
      File = '*EOF>';
-     Send(SocketID :%Addr(File) :%Len(%TrimR(File)) :0);
+     SendData(LocalSocket :%Addr(File) :%Len(%TrimR(File)));
      Leave;
    EndIf;
-   Bytes += rc;
-   SendStatus('Sending data to host, ' + %Char(%DecH(Bytes/1024 :20 :0)) +
+   Bytes += RC;
+   SendStatus('Sending data to host, ' + %Char(%DecH(Bytes/1024 :17 :2)) +
              ' KBytes transfered ...');
-   Send(SocketID :%Addr(File) :rc :0);
+   SendData(LocalSocket :%Addr(File) :%Len(%TrimR(File)));
    Clear File;
  EndDo;
 
  // Waiting for success-message
  Clear Data;
  SendStatus('Object(s) will be restored ...');
- rc = Recv(SocketID :%Addr(Data) :%Size(Data) :0);
+ RC = RecieveData(LocalSocket :%Addr(Data) :%Size(Data));
  Select;
    When ( %Scan('*ERROR_RESTORE>' :Data) > 0 );
-     Close_Socket(SocketID);
+     CleanUp_Socket(LocalSocket);
      SendDie('Error: ' + %SubSt(Data :%Scan('>' :Data) + 1 :60));
-     Return;
    When ( %Scan('*OK>' :Data) > 0 );
      SendStatus('Operation successfull.');
      System('DLTF FILE(QTEMP/SND)');
  EndSl;
 
- Close_Socket(SocketID);
+ CleanUp_Socket(LocalSocket);
 
  Return;
 
+
+END-PROC;
+
+//**************************************************************************
+DCL-PROC GenerateGSKEnvironment;
+
+ DCL-S RC INT(10) INZ;
+ //-------------------------------------------------------------------------
+
+ RC = GSK_Environment_Open(GSKEnvironment);
+ If ( RC <> GSK_OK );
+   SendDie('GSK_Environment_Open(): ' + %Str(GSK_StrError(RC)));
+ EndIf;
+
+ GSK_Attribute_Set_Buffer(GSKEnvironment :GSK_KEYRING_FILE :'*SYSTEM' :0);
+
+ GSK_Attribute_Set_eNum(GSKEnvironment :GSK_SESSION_TYPE :GSK_CLIENT_SESSION);
+
+ GSK_Attribute_Set_eNum(GSKEnvironment :GSK_SERVER_AUTH_TYPE :GSK_SERVER_AUTH_PASSTHRU);
+ GSK_Attribute_Set_eNum(GSKEnvironment :GSK_CLIENT_AUTH_TYPE :GSK_CLIENT_AUTH_PASSTHRU);
+
+ GSK_Attribute_Set_eNum(GSKEnvironment :GSK_PROTOCOL_SSLV2 :GSK_PROTOCOL_SSLV2_ON);
+ GSK_Attribute_Set_eNum(GSKEnvironment :GSK_PROTOCOL_SSLV3 :GSK_PROTOCOL_SSLV3_ON);
+ GSK_Attribute_Set_eNum(GSKEnvironment :GSK_PROTOCOL_TLSV1 :GSK_PROTOCOL_TLSV1_ON);
+
+ RC = GSK_Environment_Init(GSKEnvironment);
+ If ( RC <> GSK_OK );
+   GSK_Environment_Close(GSKEnvironment);
+   SendDie('GSK_Environment_Init(): ' + %Str(GSK_StrError(RC)));
+ EndIf;
+
+END-PROC;
+
+//**************************************************************************
+DCL-PROC SendData;
+ DCL-PI *N INT(10);
+   pSocket INT(10) CONST;
+   pData POINTER VALUE;
+   pLength INT(10) CONST;
+ END-PI;
+
+ DCL-S RC INT(10) INZ;
+ DCL-S GSKLength INT(10) INZ;
+ DCL-S Buffer CHAR(32766) BASED(pData);
+ //-------------------------------------------------------------------------
+
+ If UseSSL;
+   RC = GSK_Secure_Soc_Write(GSKHandler :%Addr(Buffer) :pLength :GSKLength);
+   If ( RC = GSK_OK );
+     RC = GSKLength;
+   Else;
+     Clear RC;
+   EndIf;
+ Else;
+   RC = Send(pSocket :%Addr(Buffer) :pLength :0);
+ EndIf;
+
+ Return RC;
+
+END-PROC;
+
+//**************************************************************************
+DCL-PROC RecieveData;
+ DCL-PI *N INT(10);
+   pSocket INT(10) CONST;
+   pData POINTER VALUE;
+   pLength INT(10) VALUE;
+ END-PI;
+
+ DCL-S RC INT(10) INZ;
+ DCL-S GSKLength INT(10) INZ;
+ DCL-S Buffer CHAR(32766) BASED(pData);
+ //-------------------------------------------------------------------------
+
+ If UseSSL;
+   RC = GSK_Secure_Soc_Read(GSKHandler :%Addr(Buffer) :pLength :GSKLength);
+   If ( RC = GSK_OK ) And ( GSKLength > 0 );
+     Buffer = %SubSt(Buffer :1 :GSKLength);
+   EndIf;
+   RC = GSKLength;
+ Else;
+   RC = Recv(pSocket :%Addr(Buffer) :pLength :0);
+ EndIf;
+
+ Return RC;
+
+END-PROC;
+
+//**************************************************************************
+DCL-PROC CleanUp_Socket;
+ DCL-PI *N;
+   pSocket INT(10) CONST;
+ END-PI;
+ //-------------------------------------------------------------------------
+
+ If UseSSL;
+   GSK_Secure_Soc_Close(GSKHandler);
+   GSK_Environment_Close(GSKEnvironment);
+ EndIf;
+ Close_Socket(pSocket);
 
 END-PROC;
 
@@ -346,32 +498,16 @@ DCL-PROC SendDie;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-PR SndPgmMsg EXTPGM('QMHSNDPM');
-   MessageID CHAR(7) CONST;
-   QualMsgFile CHAR(20) CONST;
-   MsgData CHAR(256) CONST;
-   MsgDtaLen INT(10) CONST;
-   MsgType CHAR(10) CONST;
-   CallStkEnt CHAR(10) CONST;
-   CallStkCnt INT(10) CONST;
-   MessageKey CHAR(4);
-   ErrorCode CHAR(128);
- END-PR;
-
  DCL-S MessageLength INT(10) INZ;
  DCL-S MessageKey CHAR(4) INZ;
  DCL-S MessageError CHAR(128) INZ;
-//-------------------------------------------------------------------------
+ //-------------------------------------------------------------------------
 
  MessageLength = %Len(%TrimR(pMessage));
- If ( MessageLength < 1 );
-   Return;
+ If ( MessageLength >= 0 );
+   SndPgmMsg('CPF9897'  :'QCPFMSG   *LIBL' :pMessage: MessageLength
+             :'*ESCAPE' :'*PGMBDY' :1 :MessageKey :MessageError);
  EndIf;
-
- SndPgmMsg('CPF9897' :'QCPFMSG   *LIBL' :pMessage: MessageLength
-           :'*ESCAPE' :'*PGMBDY' :1 :MessageKey :MessageError);
-
- Return;
 
 END-PROC;
 
@@ -381,32 +517,16 @@ DCL-PROC SendStatus;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-PR SndPgmMsg EXTPGM('QMHSNDPM');
-   MessageID CHAR(7) CONST;
-   QualMsgFile CHAR(20) CONST;
-   MsgData CHAR(256) CONST;
-   MsgDtaLen INT(10) CONST;
-   MsgType CHAR(10) CONST;
-   CallStkEnt CHAR(10) CONST;
-   CallStkCnt INT(10) CONST;
-   MessageKey CHAR(4);
-   ErrorCode CHAR(128);
- END-PR;
-
  DCL-S MessageLength INT(10) INZ;
  DCL-S MessageKey CHAR(4) INZ;
  DCL-S MessageError CHAR(128) INZ;
-//-------------------------------------------------------------------------
+ //-------------------------------------------------------------------------
 
  MessageLength = %Len(%TrimR(pMessage));
- If ( MessageLength < 1 );
-   Return;
+ If ( MessageLength >= 0 );
+   SndPgmMsg('CPF9897'  :'QCPFMSG   *LIBL' :pMessage :MessageLength
+             :'*STATUS' :'*EXT' :0 :MessageKey :MessageError);
  EndIf;
-
- SndPgmMsg('CPF9897' :'QCPFMSG   *LIBL' :pMessage :MessageLength
-           :'*STATUS' :'*EXT' :0 :MessageKey :MessageError);
-
- Return;
 
 END-PROC;
 
