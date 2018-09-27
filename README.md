@@ -7,6 +7,6 @@ Authentification over system userprofile and password (transfered as TDES encryp
 Based on the socket api from scott klement
  -> https://www.scottklement.com/rpg/socktut/socktut.savf
 
+
 ## Update 26.9.2018
 Now it supports TLS/SSL to send and recieve data using IBM's GSK.
-For this there is a new parameter in both commands (TLS).
