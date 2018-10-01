@@ -9,4 +9,4 @@ Based on the socket api from scott klement
 
 
 ## Update 26.9.2018
-Now it supports TLS/SSL to send and recieve data using IBM's GSK.
+Now supports TLS/SSL to send and recieve data using IBM's GSK.
