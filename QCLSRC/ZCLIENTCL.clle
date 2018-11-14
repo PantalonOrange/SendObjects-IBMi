@@ -1,0 +1,14 @@
+             PGM        PARM(&SAVE &FILE)
+
+             DCLPRCOPT  USRPRF(*OWNER) AUT(*USE) STGMDL(*TERASPACE) +
+                          DFTACTGRP(*NO) ACTGRP(*CALLER)
+
+             DCL        VAR(&SAVE) TYPE(*CHAR) LEN(64)
+             DCL        VAR(&FILE) TYPE(*CHAR) LEN(64)
+
+             RMVLNK     OBJLNK(&FILE)
+             MONMSG     MSGID(CPF0000)
+
+             CPYTOSTMF  FROMMBR(&SAVE) TOSTMF(&FILE) STMFOPT(*REPLACE)
+
+             ENDPGM

@@ -1,0 +1,95 @@
+             PGM        PARM(&LIB)
+
+             DCLPRCOPT  USRPRF(*OWNER) AUT(*USE) DFTACTGRP(*NO) +
+                          ACTGRP(*NEW)
+
+             DCL        VAR(&LIB) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&SUCCESS) TYPE(*LGL) VALUE('1')
+
+/* Check library */
+             CHKOBJ     OBJ(QSYS/&LIB) OBJTYPE(*LIB)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&SUCCESS) VALUE('0')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) +
+                          MSGDTA('Selected library not exists or +
+                          not accessable') MSGTYPE(*ESCAPE)
+             ENDDO
+
+/* Add to librarylist */
+             ADDLIBLE   LIB(&LIB) POSITION(*FIRST)
+             MONMSG     MSGID(CPF0000)
+
+/* Compile ZSERVERRG */
+             IF         COND(&SUCCESS = '1') THEN(DO)
+             CRTSQLRPGI OBJ(&LIB/ZSERVERRG) SRCFILE(&LIB/QRPGLESRC)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&SUCCESS) VALUE('0')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA('Error +
+                          compiling "ZSERVERRG" -> Joblog and +
+                          spool') MSGTYPE(*ESCAPE)
+             ENDDO
+             ENDDO
+
+/* Compile ZCLIENTRG */
+             IF         COND(&SUCCESS = '1') THEN(DO)
+             CRTSQLRPGI OBJ(&LIB/ZCLIENTRG) SRCFILE(&LIB/QRPGLESRC)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&SUCCESS) VALUE('0')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA('Error +
+                          compiling "ZCLIENTRG" -> Joblog and +
+                          spool') MSGTYPE(*ESCAPE)
+             ENDDO
+             ENDDO
+
+/* Compile ZSERVERCL */
+             IF         COND(&SUCCESS = '1') THEN(DO)
+             CRTBNDCL   PGM(&LIB/ZSERVERCL) SRCFILE(&LIB/QCLSRC)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&SUCCESS) VALUE('0')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA('Error +
+                          compiling "ZSERVERCL" -> Joblog and +
+                          spool') MSGTYPE(*ESCAPE)
+             ENDDO
+             ENDDO
+
+/* Compile ZCLIENTCL */
+             IF         COND(&SUCCESS = '1') THEN(DO)
+             CRTBNDCL   PGM(&LIB/ZCLIENTCL) SRCFILE(&LIB/QCLSRC)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&SUCCESS) VALUE('0')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA('Error +
+                          compiling "ZCLIENTCL" -> Joblog and +
+                          spool') MSGTYPE(*ESCAPE)
+             ENDDO
+             ENDDO
+
+/* Compile ZSERVER */
+             IF         COND(&SUCCESS = '1') THEN(DO)
+             CRTCMD     CMD(&LIB/ZSERVER) PGM(&LIB/ZSERVERRG) +
+                          SRCFILE(&LIB/QCMDSRC) PRDLIB(&LIB)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&SUCCESS) VALUE('0')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA('Error +
+                          compiling "ZSERVER" -> Joblog and +
+                          spool') MSGTYPE(*ESCAPE)
+             ENDDO
+             ENDDO
+
+/* Compile ZCLIENT */
+             IF         COND(&SUCCESS = '1') THEN(DO)
+             CRTCMD     CMD(&LIB/ZCLIENT) PGM(&LIB/ZCLIENTRG) +
+                          SRCFILE(&LIB/QCMDSRC) PRDLIB(&LIB)
+             MONMSG     MSGID(CPF0000) EXEC(DO)
+             CHGVAR     VAR(&SUCCESS) VALUE('0')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA('Error +
+                          compiling "ZCLIENT" -> Joblog and +
+                          spool') MSGTYPE(*ESCAPE)
+             ENDDO
+             ENDDO
+
+/* Quit program */
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA('Objects +
+                          created successfully. Have fun with them +
+                          :-)') MSGTYPE(*INFO)
+
+             ENDPGM
