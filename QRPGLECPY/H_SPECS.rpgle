@@ -1,0 +1,6 @@
+**FREE
+/if not defined (#H_SPECS)
+/define #H_SPECS
+CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES) AUT(*USE)
+        DATFMT(*ISO-) TIMFMT(*ISO.) DECEDIT('0,') ALWNULL(*USRCTL);
+/endif

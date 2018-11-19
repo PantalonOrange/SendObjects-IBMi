@@ -26,7 +26,8 @@
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
-CTL-OPT DFTACTGRP(*NO) ACTGRP(*NEW) USRPRF(*OWNER) DEBUG(*YES) MAIN(Main);
+/INCLUDE QRPGLECPY,H_SPECS
+CTL-OPT MAIN(Main);
 
 DCL-PR Main EXTPGM('ZCLIENTRG');
   QualifiedObjectName CHAR(20) CONST;
