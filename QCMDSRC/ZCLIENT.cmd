@@ -1,4 +1,6 @@
-             CMD        PROMPT('Send objects / IBMi') TEXT('Send objects to another IBMi')
+             CMD        PROMPT('Send objects / IBMi') TEXT('Send objects to another IBMi') +
+                          ALLOW(*ALL) MODE(*ALL) ALWLMTUSR(*NO) +
+                          HLPID(*CMD) HLPPNLGRP(ZCLIENT)
 
              PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) CHOICE('Objectname') +
 			            PROMPT('Objectname')
