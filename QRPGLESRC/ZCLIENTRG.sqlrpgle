@@ -275,7 +275,7 @@ DCL-PROC ManageSendingStuff;
 
  // Send username and password to host
  SendStatus('Start login at host');
- Exec SQL SET :Work = ENCRYPT_AES(:pPassword, :Key);
+ Exec SQL SET :Work = ENCRYPT_TDES(:pPassword, :Key);
  Data = pUser + %TrimR(Work);
  SendData(LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
  RC = RecieveData(LocalSocket :%Addr(Data) :%Size(Data));
