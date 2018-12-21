@@ -165,7 +165,7 @@ DCL-PROC ManageSendingStuff;
  DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/SND.FILE';
  DCL-C P_FILE '/tmp/snd.file';
 
- DCL-S KEY CHAR(40) INZ('your_key');
+ DCL-S KEY CHAR(40) INZ('oDc12ZIeNksYMzeSNH3oH0RDkmldGx8SY9HRYgTB');
  DCL-S Loop IND INZ(TRUE);
 
  DCL-S FD INT(10) INZ;
@@ -174,6 +174,7 @@ DCL-PROC ManageSendingStuff;
  DCL-S Work CHAR(1024) INZ;
  DCL-S SaveCommand CHAR(1024) INZ;
  DCL-S File CHAR(32766) INZ;
+ DCL-S FileLength INT(10) INZ;
  DCL-S Bytes UNS(20) INZ;
  DCL-S ConnectTo POINTER INZ;
  DCL-S LocalSocket INT(10) INZ;
@@ -213,7 +214,7 @@ DCL-PROC ManageSendingStuff;
  If ( Address = INADDR_NONE );
    P_HostEnt = GetHostByName(%TrimR(pHost));
    If ( P_HostEnt = *NULL );
-     SendDie('Unable to find that host.');
+     SendDie('Unable to find selected host.');
      Return;
    EndIf;
    Address = H_Addr;
@@ -248,6 +249,7 @@ DCL-PROC ManageSendingStuff;
 
  If UseSSL;
  // Open SSL/TLS with handshake
+   SendStatus('Try to make a handshake with the server ...');
    RC = GSK_Secure_Soc_Open(GSKEnvironment :GSKHandler);
    If ( RC <> GSK_OK );
      CleanUp_Socket(LocalSocket);
@@ -274,7 +276,7 @@ DCL-PROC ManageSendingStuff;
  EndIf;
 
  // Send username and password to host
- SendStatus('Start login at host');
+ SendStatus('Start login at host ...');
  Exec SQL SET :Work = ENCRYPT_TDES(:pPassword, :Key);
  Data = pUser + %TrimR(Work);
  SendData(LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
@@ -306,7 +308,7 @@ DCL-PROC ManageSendingStuff;
  System('CRTSAVF QTEMP/SND');
  If ( pObjectType = '*LIB' );
    SaveCommand = 'SAVLIB LIB(' + %TrimR(QualifiedObjectName.ObjectName) +
-                 ') DEV(*SAVF) SAVF(QTEMP/SND) ' + 'TGTRLS(' + %Trim(pTargetRelease) +
+                 ') DEV(*SAVF) SAVF(QTEMP/SND) ' + 'TGTRLS(' + %TrimR(pTargetRelease) +
                  ') SAVACT(*LIB) DTACPR(*HIGH)';
  Else;
    SaveCommand = 'SAVOBJ OBJ(' + %TrimR(QualifiedObjectName.ObjectName) + ') LIB(' +
@@ -318,10 +320,10 @@ DCL-PROC ManageSendingStuff;
  If ( FD < 0 );
    CleanUp_Socket(LocalSocket);
    System('DLTF FILE(QTEMP/SND)');
-   SendDie('Error while saving data. See joblog.');
+   SendDie('Error occured while saving data. See joblog.');
  EndIf;
 
- SendStatus('Prepare savefile to send ...');
+ SendStatus('Prepare savefile to send, this may take a few moments ...');
  Monitor;
    EC#ZCLIENT(P_SAVE :P_FILE);
    On-Error;
@@ -334,7 +336,7 @@ DCL-PROC ManageSendingStuff;
  System('DLTF QTEMP/SND');
 
  // Send restoreinformations
- SendStatus('Send objectinformations');
+ SendStatus('Send restore instructions');
  If ( pObjectType = '*LIB' );
    Data = 'RSTLIB SAVLIB(' + %TrimR(QualifiedObjectName.ObjectName) +
           ') DEV(*SAVF) SAVF(QTEMP/RCV) MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB('
@@ -349,40 +351,40 @@ DCL-PROC ManageSendingStuff;
 
  // Send object
  SendStatus('Sending data to host ...');
- FD = IFS_Open(P_FILE :O_RDONLY + O_TEXTDATA + O_LARGEFILE);
+ FD = IFS_Open(P_FILE :O_RDONLY + O_LARGEFILE);
  If ( FD < 0 );
    ErrNumber = ErrNo;
    CleanUp_Socket(LocalSocket);
    IFS_Unlink(P_FILE);
-   SendDie('Error while reading file > ' + %Str(StrError(ErrNumber)));
+   SendDie('Error occured while reading file > ' + %Str(StrError(ErrNumber)));
  EndIf;
 
  DoW ( Loop );
-   RC = IFS_Read(FD :%Addr(File) :%Size(File));
-   If ( RC <= 0 );
+   FileLength = IFS_Read(FD :%Addr(File) :%Size(File));
+   If ( FileLength < (%Size(File) - 5) );
      IFS_Close(FD);
      IFS_Unlink(P_FILE);
-     File = '*EOF>';
-     SendData(LocalSocket :%Addr(File) :%Len(%TrimR(File)));
+     File = %SubSt(File :1 :FileLength) + '*EOF>';
+     SendData(LocalSocket :%Addr(File) :FileLength + 5);
      Leave;
    EndIf;
-   Bytes += RC;
+   Bytes += FileLength;
    SendStatus('Sending data to host, ' + %Char(%DecH(Bytes/1024 :17 :2)) +
              ' KBytes transfered ...');
-   SendData(LocalSocket :%Addr(File) :%Len(%TrimR(File)));
+   SendData(LocalSocket :%Addr(File) :FileLength);
    Clear File;
  EndDo;
 
  // Waiting for success-message
  Clear Data;
- SendStatus('Object(s) will be restored ...');
+ SendStatus('Please wait, object(s) will be restored on the host system ...');
  RC = RecieveData(LocalSocket :%Addr(Data) :%Size(Data));
  Select;
    When ( %Scan('*ERROR_RESTORE>' :Data) > 0 );
      CleanUp_Socket(LocalSocket);
-     SendDie('Error: ' + %SubSt(Data :%Scan('>' :Data) + 1 :60));
+     SendDie('Operation canceled: ' + %SubSt(Data :%Scan('>' :Data) + 1 :60));
    When ( %Scan('*OK>' :Data) > 0 );
-     SendStatus('Operation successfull.');
+     SendStatus('Operation was successfull.');
      System('DLTF FILE(QTEMP/SND)');
  EndSl;
 

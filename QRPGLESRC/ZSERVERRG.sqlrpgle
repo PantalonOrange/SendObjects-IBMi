@@ -70,7 +70,7 @@ DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
 DCL-C P_FILE '/tmp/rcv.file';
 DCL-C TRUE *ON;
 DCL-C FALSE *OFF;
-DCL-C APP_ID 'YOUR_APP_ID';
+DCL-C APP_ID 'WEDL_TLS_SOCKET';
 
 /INCLUDE QRPGLECPY,ERRNO_H
 /INCLUDE QRPGLECPY,PSDS
@@ -264,12 +264,12 @@ DCL-PROC HandleClient;
    Error CHAR(32766) OPTIONS(*VARSIZE);
  END-PR;
  DCL-PR EC#ZSERVER EXTPGM('ZSERVERCL');
-   RestoreSuccess CHAR(1);
+   Success CHAR(1);
    Save CHAR(64) CONST;
    File CHAR(64) CONST;
  END-PR;
 
- DCL-S KEY CHAR(40) INZ('your_key');
+ DCL-S KEY CHAR(40) INZ('oDc12ZIeNksYMzeSNH3oH0RDkmldGx8SY9HRYgTB');
 
  DCl-C O_WRONLY 2;
  DCL-C O_CREAT 8;
@@ -292,7 +292,7 @@ DCL-PROC HandleClient;
  DCL-S User CHAR(10) INZ;
  DCL-S Password CHAR(32) INZ;
  DCL-S UserHandler CHAR(12) INZ;
- DCL-S OldUser CHAR(10) INZ;
+ DCL-S OriginalUser CHAR(10) INZ;
  DCL-S UserLength INT(10) INZ(10);
  DCL-S UserCCSID INT(10) INZ(37);
  DCL-S Bytes UNS(20) INZ;
@@ -320,12 +320,12 @@ DCL-PROC HandleClient;
    Return;
  EndIf;
 
- OldUser = PSDS.UserName;
+ OriginalUser = PSDS.UserName;
  EC#QSYGETPH(User :Password :UserHandler :ErrorDS :UserLength :UserCCSID);
  If ( ErrorDS.NbrBytesAvl > 0 );
    Data = '*NOACCESS>' + ErrorDS.MsgID;
    SendData(%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Login failed by user ' + %TrimR(User) + ': ' + ErrorDS.MsgID);
+   SendJobLog('+> Login failed for user ' + %TrimR(User) + ': ' + ErrorDS.MsgID);
    Return;
  EndIf;
 
@@ -347,20 +347,29 @@ DCL-PROC HandleClient;
  RecieveData(%Addr(Restore) :%Size(Restore));
 
  // Handle incomming data
- FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_CODEPAGE + O_LARGEFILE
-                        :S_IRWXU + S_IRWXG + S_IRWXO :1141);
+ FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_LARGEFILE
+                        :S_IRWXU + S_IRWXG + S_IRWXO);
 
  Reset Bytes;
 
  DoW ( Loop ) And ( FileHandler >= 0 );
    FileLength = RecieveData(%Addr(FileData) :%Size(FileData));
-   If ( FileLength <= 0 ) Or ( FileData = '*EOF>' );
+   If ( FileLength <= 0 );
      IFS_Close(FileHandler);
      Leave;
    EndIf;
+
    Bytes += FileLength;
-   RC = IFS_Write(FileHandler :%Addr(FileData) :FileLength);
-   Clear FileData;
+
+   If ( %Scan('*EOF>' :FileData) > 0 );
+     FileData = %SubSt(FileData :1 :%Scan('*EOF>' :FileData) - 1);
+     IFS_Write(FileHandler :%Addr(FileData) :FileLength - 5);
+     IFS_Close(FileHandler);
+     Leave;
+   Else;
+     IFS_Write(FileHandler :%Addr(FileData) :FileLength);
+     Clear FileData;
+   EndIf;
  EndDo;
 
  SendJobLog('+> ' + %Char(%DecH(Bytes/1024 :17 :2)) + ' KBytes recieved.');
@@ -381,8 +390,8 @@ DCL-PROC HandleClient;
  EndIf;
  SendData(%Addr(Data) :%Len(%Trim(Data)));
 
- // Switch to original userprofile
- EC#QSYGETPH(OldUser :'*NOPWD' :UserHandler :ErrorDS);
+ // Switch back to original userprofile
+ EC#QSYGETPH(OriginalUser :'*NOPWD' :UserHandler :ErrorDS);
  EC#QWTSETP(UserHandler :ErrorDS);
 
  Return;
