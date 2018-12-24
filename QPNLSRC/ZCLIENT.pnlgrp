@@ -79,4 +79,10 @@ Send data over TLS.
 :EPARML.
 :EHELP.
 
+:HELP NAME='ZCLIENT/DTACPR'.Datacompression - Help
+:XH3.Define the type of compression
+:P.Please define the type of compression for the savefile.
+:P.*HIGH is the default value
+:EHELP.
+
 :EPNLGRP.

@@ -70,7 +70,7 @@ DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
 DCL-C P_FILE '/tmp/rcv.file';
 DCL-C TRUE *ON;
 DCL-C FALSE *OFF;
-DCL-C APP_ID 'WEDL_TLS_SOCKET';
+DCL-C APP_ID 'APP_TLS_SOCKET';
 
 /INCLUDE QRPGLECPY,ERRNO_H
 /INCLUDE QRPGLECPY,PSDS
@@ -269,7 +269,7 @@ DCL-PROC HandleClient;
    File CHAR(64) CONST;
  END-PR;
 
- DCL-S KEY CHAR(40) INZ('oDc12ZIeNksYMzeSNH3oH0RDkmldGx8SY9HRYgTB');
+ DCL-S KEY CHAR(40) INZ('yourhiddenkey');
 
  DCl-C O_WRONLY 2;
  DCL-C O_CREAT 8;
@@ -380,6 +380,8 @@ DCL-PROC HandleClient;
    On-Error;
      RestoreSuccess = FALSE;
  EndMon;
+
+ SendJobLog('+> Restore: ' + %TrimR(Restore));
 
  If Not RestoreSuccess;
    Data = '*ERROR_RESTORE> Error occured while writing to savefile';

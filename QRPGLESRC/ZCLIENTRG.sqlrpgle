@@ -39,6 +39,7 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
   UseSSL CHAR(4) CONST;
+  DtaCpr CHAR(7) CONST;
 END-PR;
 
 /INCLUDE QRPGLECPY,SOCKET_H
@@ -56,6 +57,7 @@ DCL-PR ManageSendingStuff;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
   UseSSL CHAR(4) CONST;
+  DtaCpr CHAR(7) CONST;
 END-PR;
 DCL-PR GenerateGSKEnvironment END-PR;
 DCL-PR SendData INT(10);
@@ -100,14 +102,16 @@ DCL-PROC Main;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
    pUseSSL CHAR(4) CONST;
+   pDtaCpr CHAR(7) CONST;
  END-PI;
  //-------------------------------------------------------------------------
 
  *INLR = TRUE;
 
- If ( %Parms() = 9 ) And ( pQualifiedObjectName <> '' );
+ If ( %Parms() = 10 ) And ( pQualifiedObjectName <> '' );
    ManageSendingStuff(pQualifiedObjectName :pObjectType :pHost :pUser
-                      :pPassword :pTargetRelease :pRestoreLibrary :pPort :pUseSSL);
+                      :pPassword :pTargetRelease :pRestoreLibrary :pPort
+                      :pUseSSL :pDtaCpr);
  EndIf;
 
  Return;
@@ -127,6 +131,7 @@ DCL-PROC ManageSendingStuff;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
    pUseSSL CHAR(4) CONST;
+   pDtaCpr CHAR(7) CONST;
  END-PI;
 
  DCL-PR IFS_Open INT(10) EXTPROC('open');
@@ -165,7 +170,7 @@ DCL-PROC ManageSendingStuff;
  DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/SND.FILE';
  DCL-C P_FILE '/tmp/snd.file';
 
- DCL-S KEY CHAR(40) INZ('oDc12ZIeNksYMzeSNH3oH0RDkmldGx8SY9HRYgTB');
+ DCL-S KEY CHAR(40) INZ('yourhiddenkey');
  DCL-S Loop IND INZ(TRUE);
 
  DCL-S FD INT(10) INZ;
@@ -303,18 +308,19 @@ DCL-PROC ManageSendingStuff;
  EndSl;
 
  // Save objects and prepare
- SendStatus('Saving object(s), please wait ...');
+ SendStatus('Saving object(s), this may take a few moments ...');
  System('DLTF QTEMP/SND');
  System('CRTSAVF QTEMP/SND');
  If ( pObjectType = '*LIB' );
    SaveCommand = 'SAVLIB LIB(' + %TrimR(QualifiedObjectName.ObjectName) +
                  ') DEV(*SAVF) SAVF(QTEMP/SND) ' + 'TGTRLS(' + %TrimR(pTargetRelease) +
-                 ') SAVACT(*LIB) DTACPR(*HIGH)';
+                 ') SAVACT(*LIB) DTACPR(' + %TrimR(pDtaCpr) + ')';
  Else;
    SaveCommand = 'SAVOBJ OBJ(' + %TrimR(QualifiedObjectName.ObjectName) + ') LIB(' +
                  %TrimR(QualifiedObjectName.ObjectLibrary) + ') '+
                  'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) SAVF(QTEMP/SND) ' +
-                 'TGTRLS(' + %TrimR(pTargetRelease) + ') SAVACT(*LIB) DTACPR(*HIGH)';
+                 'TGTRLS(' + %TrimR(pTargetRelease) + ') SAVACT(*LIB) ' +
+                 'DTACPR(' + %TrimR(pDtaCpr) + ')';
  EndIf;
  FD = System(SaveCommand);
  If ( FD < 0 );
