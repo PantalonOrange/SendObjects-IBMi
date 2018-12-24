@@ -7,7 +7,7 @@ Authentification over system userprofile and password (transfered as TDES encryp
 Based on the socket api from scott klement
  -> https://www.scottklement.com/rpg/socktut/socktut.savf
 
-To create optjects:
+To create objects:
  -> Copy source to your sourcefiles (qrpglesrc, qcmdsrc, etc) and compile them via seu-option "14"
 
 
