@@ -13,3 +13,6 @@ To create objects:
 
 ## Update 26.9.2018
 Now supports TLS/SSL to send and recieve data using IBM's GSK.
+
+## Command ZCLIENT
+![ZCLIENT](https://raw.githubusercontent.com/PantalonOrange/SendObjects-IBMi/ZCLIENT.gif)
