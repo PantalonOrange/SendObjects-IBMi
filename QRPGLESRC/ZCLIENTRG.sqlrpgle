@@ -253,7 +253,7 @@ DCL-PROC ManageSendingStuff;
  EndIf;
 
  If pUseTLS;
- // Open SSL/TLS with handshake
+ // Open TLS with handshake
    SendStatus('Try to make a handshake with the server ...');
    RC = GSK_Secure_Soc_Open(GSKEnvironment :GSKHandler);
    If ( RC <> GSK_OK );
@@ -280,32 +280,47 @@ DCL-PROC ManageSendingStuff;
    EndIf;
  EndIf;
 
- // Send username and password to host
- SendStatus('Start login at host ...');
- Exec SQL SET :Work = ENCRYPT_TDES(:pPassword, :Key);
- Data = pUser + %TrimR(Work);
- SendData(pUseTLS :LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
- RC = RecieveData(pUseTLS :LocalSocket :%Addr(Data) :%Size(Data));
- If ( RC <= 0 );
-   CleanUp_Socket(pUseTLS :LocalSocket);
-   SendDie('Login failed.');
- EndIf;
+ // Send username and password to host when selected
+ If ( pUser <> '*NONE' );
+   SendStatus('Start login at host ...');
+   Exec SQL SET :Work = ENCRYPT_TDES(:pPassword, :Key);
+   Data = pUser + %TrimR(Work);
+   SendData(pUseTLS :LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
+   RC = RecieveData(pUseTLS :LocalSocket :%Addr(Data) :%Size(Data));
+   If ( RC <= 0 );
+     CleanUp_Socket(pUseTLS :LocalSocket);
+     SendDie('Login failed.');
+   EndIf;
 
- Work = %SubSt(Data:%Scan('>' :Data) + 1 :(RC - %Scan('>' :Data)));
- Data = %SubSt(Data :1 :%Scan('>' :Data));
- Select;
-   When ( Data = '*NOLOGINDATA>' );
+   Work = %SubSt(Data:%Scan('>' :Data) + 1 :(RC - %Scan('>' :Data)));
+   Data = %SubSt(Data :1 :%Scan('>' :Data));
+
+   Select;
+     When ( Data = '*NOLOGINDATA>' );
+       CleanUp_Socket(pUseTLS :LocalSocket);
+       SendDie('No login data recieved.');
+     When ( Data = '*NOPWD>' );
+       CleanUp_Socket(pUseTLS :LocalSocket);
+       SendDie('Wrong password > ' + %TrimR(Work));
+     When ( Data = '*NOACCESS>' );
+       CleanUp_Socket(pUseTLS :LocalSocket);
+       SendDie('Access denied > ' + %TrimR(Work));
+     When ( Data = '*OK>' );
+       SendStatus('Login ok.');
+   EndSl;
+ Else;
+   Data = pUser;
+   SendData(pUseTLS :LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
+   RC = RecieveData(pUseTLS :LocalSocket :%Addr(Data) :%Size(Data));
+   If ( RC <= 0 );
      CleanUp_Socket(pUseTLS :LocalSocket);
-     SendDie('No login data recieved.');
-   When ( Data = '*NOPWD>' );
+     SendDie('Login failed.');
+   EndIf;
+   If ( Data <> '*OK>' );
      CleanUp_Socket(pUseTLS :LocalSocket);
-     SendDie('Wrong password > ' + %TrimR(Work));
-   When ( Data = '*NOACCESS>' );
-     CleanUp_Socket(pUseTLS :LocalSocket);
-     SendDie('Access denied > ' + %TrimR(Work));
-   When ( Data = '*OK>' );
-     SendStatus('Login ok.');
- EndSl;
+     SendDie('Authentication *NONE not allowed.');
+   EndIf;
+ EndIf;
 
  // Save objects and prepare
  SendStatus('Saving object(s), this may take a few moments ...');

@@ -25,29 +25,31 @@
              PARM       KWD(HOST) TYPE(*CHAR) LEN(16) CHOICE('Host') +
                           PROMPT('IP-Adress or Hostname')
 
-             PARM       KWD(USER) TYPE(*NAME) LEN(10) PROMPT('User')
+             PARM       KWD(USER) TYPE(*NAME) LEN(10) SPCVAL((*NONE +
+                          *NONE)) PROMPT('User')
 
              PARM       KWD(PASS) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
                           DSPINPUT(*NO) PROMPT('Password')
 
              PARM       KWD(TGTRLS) TYPE(*CHAR) LEN(8) RSTD(*YES) +
                           DFT(*CURRENT) VALUES(*CURRENT *PRV) +
-                          PROMPT('Target-Release')
+                          PMTCTL(*PMTRQS) PROMPT('Target-Release')
 
              PARM       KWD(RSTLIB) TYPE(*NAME) LEN(10) DFT(*SAVLIB) +
-                          SPCVAL((*SAVLIB *SAVLIB)) PROMPT('Restore +
-                          in following library')
+                          SPCVAL((*SAVLIB *SAVLIB)) PMTCTL(*PMTRQS) +
+                          PROMPT('Restore in following library')
 
              PARM       KWD(PORT) TYPE(*DEC) LEN(5) DFT(19335) +
-                          RANGE(1 65535) PROMPT('Port')
+                          RANGE(1 65535) PMTCTL(*PMTRQS) PROMPT('Port')
 
-             PARM       KWD(TLS) TYPE(*LGL) RSTD(*YES) DFT(*NO) +
-                          SPCVAL((*YES '1') (*NO '0')) PROMPT('Send +
-                          data over TLS')
+             PARM       KWD(TLS) TYPE(*LGL) RSTD(*YES) DFT(*YES) +
+                          SPCVAL((*YES '1') (*NO '0')) +
+                          PMTCTL(*PMTRQS) PROMPT('Send data over TLS')
 
              PARM       KWD(DTACPR) TYPE(*CHAR) LEN(7) RSTD(*YES) +
                           DFT(*HIGH) VALUES(*DEV *NO *YES *LOW +
-                          *MEDIUM *HIGH) PROMPT('Datacompression')
+                          *MEDIUM *HIGH) PMTCTL(*PMTRQS) +
+                          PROMPT('Datacompression')
 
  OBJLIB:     QUAL       TYPE(*SNAME)
              QUAL       TYPE(*SNAME) DFT(*LIBL) SPCVAL((*LIBL +

@@ -25,7 +25,8 @@ Please insert the name or ip-address.
 :HELP NAME='ZCLIENT/USER'.Username - Help
 :XH3.Username to login
 :P.
-Please insert your username on the IBMi
+Please insert your username on the IBMi or *NONE if the Authentication - Parm
+is set to *NONE
 :EHELP.
 
 :HELP NAME='ZCLIENT/PASS'.Password - Help
@@ -69,13 +70,13 @@ Serverport on the other side.
 Please select one of the following choices:
 :P.
 :PARML.
-:PT.:PK DEF.*NO:EPK.
-:PD.
-Send data without using TLS.
-:P.
-:PT.:PV.*YES:EPV.
+:PT.:PK DEF.*YES:EPK.
 :PD.
 Send data over TLS.
+:P.
+:PT.:PV.*NO:EPV.
+:PD.
+Send data without using TLS.
 :EPARML.
 :EHELP.
 

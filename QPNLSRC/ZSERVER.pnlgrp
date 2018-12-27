@@ -1,0 +1,48 @@
+:PNLGRP.
+:HELP NAME='ZSERVER'.Recieve objects - Help
+:P.
+With this command you can start an server to reecieve objects from other
+IBMi Systems.
+:P.
+Be sure your calling userprofile has *ALLOBJ authority.
+:EHELP.
+
+:HELP NAME='ZSERVER/PORT'.Port  - Help
+:XH3.Serverport
+:P.
+Serverport on the other side.
+:EHELP.
+
+:HELP NAME='ZSERVER/AUTH'.Set authentication-level - Help
+:XH3.Set authentication-level for this server.
+:P.
+Please select one of the following choices:
+:P.
+:PARML.
+:PT.:PK DEF.*USRPRF:EPK.
+:PD.
+Using submitted userprofile and password.
+:P.
+:PT.:PV.*NONE:EPV.
+:PD.
+No authentication is used.
+:EPARML.
+:EHELP.
+
+:HELP NAME='ZSERVER/TLS'.Use TLS - Help
+:XH3.Use Transport layer security
+:P.
+Please select one of the following choices:
+:P.
+:PARML.
+:PT.:PK DEF.*YES:EPK.
+:PD.
+Recieve data over TLS.
+:P.
+:PT.:PV.*NO:EPV.
+:PD.
+Recieve data without using TLS.
+:EPARML.
+:EHELP.
+
+:EPNLGRP.

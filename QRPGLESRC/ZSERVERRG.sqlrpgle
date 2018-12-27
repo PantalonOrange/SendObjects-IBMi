@@ -32,6 +32,7 @@ CTL-OPT MAIN(Main);
 
 DCL-PR Main EXTPGM('ZSERVERRG');
   Port UNS(5) CONST;
+  Authentication CHAR(7) CONST;
   UseTLS IND CONST;
 END-PR;
 
@@ -53,6 +54,7 @@ DCL-PR AcceptConnection;
   ConnectFrom POINTER CONST;
 END-PR;
 DCL-PR HandleClient;
+  Authentication CHAR(7) CONST;
   UseTLS IND CONST;
 END-PR;
 DCL-PR GenerateGSKEnvironment IND END-PR;
@@ -106,6 +108,7 @@ END-DS;
 DCL-PROC Main;
  DCL-PI *N;
    pPort UNS(5) CONST;
+   pAuthentication CHAR(7) CONST;
    pUseTLS IND CONST;
  END-PI;
 
@@ -124,7 +127,7 @@ DCL-PROC Main;
    AcceptConnection(UseTLS :ConnectFrom);
 
    Monitor;
-     HandleClient(UseTLS);
+     HandleClient(pAuthentication :UseTLS);
      On-Error;
    EndMon;
 
@@ -255,6 +258,7 @@ END-PROC;
 //**************************************************************************
 DCL-PROC HandleClient;
  DCL-PI *N;
+   pAuthentication CHAR(7) CONST;
    pUseTLS IND CONST;
  END-PI;
 
@@ -321,48 +325,62 @@ DCL-PROC HandleClient;
  DCL-DS ErrorDS LIKEDS(ErrorDS_Template);
  //-------------------------------------------------------------------------
 
- // User and password recieve and check / change to called user
- RC = RecieveData(pUseTLS :%Addr(Data) :%Size(Data));
- If ( RC <= 0 ) Or ( Data = '' );
-   Data = '*NOLOGINDATA>';
-   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> No userinformations passed');
-   Return;
- EndIf;
+ // User and password recieve and check / change to called user when authentication is *USRPRF
+ If ( pAuthentication = '*USRPRF' );
+   RC = RecieveData(pUseTLS :%Addr(Data) :%Size(Data));
+   If ( RC <= 0 ) Or ( Data = '' );
+     Data = '*NOLOGINDATA>';
+     SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+     SendJobLog('+> No userinformations passed');
+     Return;
+   EndIf;
 
- User = %SubSt(Data :1 :10);
- Work = %SubSt(Data :11 :1000);
- Exec SQL SET :Password = DECRYPT_BIT(BINARY(:Work), :Key);
- Clear Key;
- If ( SQLCode <> 0 );
-   Data = '*NOPWD>' + %Char(SQLCode);
-   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Password decryption failed for user ' + %TrimR(User) + ': ' + %Char(SQLCode));
-   Return;
- EndIf;
+   If ( Data = '*NONE' );
+     Data = '*NONONEALLOWED>';
+     SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+     SendJobLog('+> No anonymous login allowed');
+     Return;
+   EndIf;
 
- OriginalUser = PSDS.UserName;
- EC#QSYGETPH(User :Password :UserHandler :ErrorDS :UserLength :UserCCSID);
- If ( ErrorDS.NbrBytesAvl > 0 );
-   Data = '*NOACCESS>' + ErrorDS.MessageID;
-   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Login failed for user ' + %TrimR(User) + ': ' + ErrorDS.MessageID);
-   Return;
- EndIf;
+   User = %SubSt(Data :1 :10);
+   Work = %SubSt(Data :11 :1000);
+   Exec SQL SET :Password = DECRYPT_BIT(BINARY(:Work), :Key);
+   Clear Key;
+   If ( SQLCode <> 0 );
+     Data = '*NOPWD>' + %Char(SQLCode);
+     SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+     SendJobLog('+> Password decryption failed for user ' + %TrimR(User) + ': ' + %Char(SQLCode));
+     Return;
+   EndIf;
 
- Clear Password;
- EC#QWTSETP(UserHandler :ErrorDS);
- If ( ErrorDS.NbrBytesAvl > 0 );
-   Data = '*NOACCESS>' + ErrorDS.MessageID;
-   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> No access for userprofile ' + %TrimR(User) + ': ' + ErrorDS.MessageID);
-   Return;
- EndIf;
+   OriginalUser = PSDS.UserName;
+   EC#QSYGETPH(User :Password :UserHandler :ErrorDS :UserLength :UserCCSID);
+   Clear Password;
+   If ( ErrorDS.NbrBytesAvl > 0 );
+     Data = '*NOACCESS>' + ErrorDS.MessageID;
+     SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+     SendJobLog('+> Login failed for user ' + %TrimR(User) + ': ' + ErrorDS.MessageID);
+     Return;
+   EndIf;
 
- // Login completed
- Data = '*OK>';
- SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
- SendJobLog('+> User logged in successfully: ' + %TrimR(User));
+   EC#QWTSETP(UserHandler :ErrorDS);
+   If ( ErrorDS.NbrBytesAvl > 0 );
+     Data = '*NOACCESS>' + ErrorDS.MessageID;
+     SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+     SendJobLog('+> No access for userprofile ' + %TrimR(User) + ': ' + ErrorDS.MessageID);
+     Return;
+   EndIf;
+
+   // Login completed
+   Data = '*OK>';
+   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+   SendJobLog('+> User logged in successfully: ' + %TrimR(User));
+ Else;
+   RC = RecieveData(pUseTLS :%Addr(Data) :%Size(Data));
+   Data = '*OK>';
+   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+   SendJobLog('+> Unknown user connected.');
+ EndIf;
 
  // Handle incomming file- and restore informations
  RecieveData(pUseTLS :%Addr(Restore) :%Size(Restore));
@@ -413,9 +431,11 @@ DCL-PROC HandleClient;
  EndIf;
  SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
 
- // Switch back to original userprofile
- EC#QSYGETPH(OriginalUser :'*NOPWD' :UserHandler :ErrorDS);
- EC#QWTSETP(UserHandler :ErrorDS);
+ // Switch back to original userprofile when authentication is *USRPRF
+ If ( pAuthentication = '*USRPRF' );
+   EC#QSYGETPH(OriginalUser :'*NOPWD' :UserHandler :ErrorDS);
+   EC#QWTSETP(UserHandler :ErrorDS);
+ EndIf;
 
  Return;
 
@@ -553,7 +573,6 @@ DCL-PROC CleanUp_Socket;
 
  If pUseTLS;
    GSK_Secure_Soc_Close(GSKHandler);
-   GSK_Environment_Close(GSKEnvironment);
  EndIf;
 
  Close_Socket(pSocketHandler);
