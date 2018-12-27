@@ -14,5 +14,8 @@ To create objects:
 ## Update 26.9.2018
 Now supports TLS/SSL to send and recieve data using IBM's GSK.
 
+## Update 27.12.2018
+Bugfixes and new authentication-mode (with userprofile or *NONE)
+
 ## Command ZCLIENT
-![ZCLIENT](https://github.com/PantalonOrange/SendObjects-IBMi/blob/master/ZCLIENT.gif)
+![ZCLIENT](https://github.com/PantalonOrange/SendObjects-IBMi/blob/master/zclient.gif)
