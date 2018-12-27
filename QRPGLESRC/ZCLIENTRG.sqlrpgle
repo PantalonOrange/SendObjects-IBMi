@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018 Christian Brunner
+//- Copyright (c) 2018, 2019 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -19,9 +19,9 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-// 00000000 BRC 30.08.2018
+//  Created by BRC on 30.08.2018 - 27.12.2018
 
-// Socketclient with or without tls/ssl to send objects to another IBMi
+// Socketclient to send objects over tls to another IBMi
 //   Based on the socketapi from scott klement - (c) Scott Klement
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
@@ -38,7 +38,7 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   TargetRelease CHAR(8) CONST;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
-  UseSSL CHAR(4) CONST;
+  UseTLS IND CONST;
   DtaCpr CHAR(7) CONST;
 END-PR;
 
@@ -56,21 +56,24 @@ DCL-PR ManageSendingStuff;
   TargetRelease CHAR(8) CONST;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
-  UseSSL CHAR(4) CONST;
+  UseTLS IND CONST;
   DtaCpr CHAR(7) CONST;
 END-PR;
 DCL-PR GenerateGSKEnvironment END-PR;
 DCL-PR SendData INT(10);
-  Socket INT(10) CONST;
+  UseTLS IND CONST;
+  SocketHandler INT(10) CONST;
   Data POINTER VALUE;
   Length INT(10) CONST;
 END-PR;
 DCL-PR RecieveData INT(10);
-  Socket INT(10) CONST;
+  UseTLS IND CONST;
+  SocketHandler INT(10) CONST;
   Data POINTER VALUE;
   Length INT(10) VALUE;
 END-PR;
 DCL-PR CleanUp_Socket;
+  UseTLS IND CONST;
   SocketHandler INT(10) CONST;
 END-PR;
 DCL-PR SendDie;
@@ -85,9 +88,8 @@ DCL-C FALSE *OFF;
 
 /INCLUDE QRPGLECPY,ERRNO_H
 
- DCL-S UseSSL IND INZ(FALSE);
- DCL-S GSKEnvironment POINTER INZ;
- DCL-S GSKHandler POINTER INZ;
+DCL-S GSKEnvironment POINTER INZ;
+DCL-S GSKHandler POINTER INZ;
 
 
 //#########################################################################
@@ -101,7 +103,7 @@ DCL-PROC Main;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
-   pUseSSL CHAR(4) CONST;
+   pUseTLS IND CONST;
    pDtaCpr CHAR(7) CONST;
  END-PI;
  //-------------------------------------------------------------------------
@@ -111,7 +113,7 @@ DCL-PROC Main;
  If ( %Parms() = 10 ) And ( pQualifiedObjectName <> '' );
    ManageSendingStuff(pQualifiedObjectName :pObjectType :pHost :pUser
                       :pPassword :pTargetRelease :pRestoreLibrary :pPort
-                      :pUseSSL :pDtaCpr);
+                      :pUseTLS :pDtaCpr);
  EndIf;
 
  Return;
@@ -130,7 +132,7 @@ DCL-PROC ManageSendingStuff;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
-   pUseSSL CHAR(4) CONST;
+   pUseTLS IND CONST;
    pDtaCpr CHAR(7) CONST;
  END-PI;
 
@@ -170,7 +172,7 @@ DCL-PROC ManageSendingStuff;
  DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/SND.FILE';
  DCL-C P_FILE '/tmp/snd.file';
 
- DCL-S KEY CHAR(40) INZ('yourhiddenkey');
+ DCL-S KEY CHAR(40) INZ('yourkey');
  DCL-S Loop IND INZ(TRUE);
 
  DCL-S FD INT(10) INZ;
@@ -212,8 +214,6 @@ DCL-PROC ManageSendingStuff;
    Return;
  EndIf;
 
- UseSSL = ( pUseSSL = '*YES' );
-
  // Search adress via hostname
  Address = INet_Addr(%TrimR(pHost));
  If ( Address = INADDR_NONE );
@@ -225,14 +225,14 @@ DCL-PROC ManageSendingStuff;
    Address = H_Addr;
  EndIf;
 
- If UseSSL;
+ If pUseTLS;
    GenerateGSKEnvironment();
  EndIf;
 
  // Create socket
  LocalSocket = Socket(AF_INET :SOCK_STREAM :IPPROTO_IP);
  If ( LocalSocket < 0 );
-   CleanUp_Socket(LocalSocket);
+   CleanUp_Socket(pUseTLS :LocalSocket);
    SendDie('socket(): ' + %Str(StrError(ErrNo)));
  EndIf;
 
@@ -248,34 +248,34 @@ DCL-PROC ManageSendingStuff;
  // Connect to host
  If ( Connect(LocalSocket :ConnectTo :AddressLength) < 0 );
    ErrNumber = ErrNo;
-   CleanUp_Socket(LocalSocket);
+   CleanUp_Socket(pUseTLS :LocalSocket);
    SendDie('connect(): ' + %Str(StrError(ErrNumber)));
  EndIf;
 
- If UseSSL;
+ If pUseTLS;
  // Open SSL/TLS with handshake
    SendStatus('Try to make a handshake with the server ...');
    RC = GSK_Secure_Soc_Open(GSKEnvironment :GSKHandler);
    If ( RC <> GSK_OK );
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendDie('GSK_Secure_Soc_Open(): ' + %Str(GSK_StrError(RC)));
    EndIf;
 
    RC = GSK_Attribute_Set_Numeric_Value(GSKHandler :GSK_FD :LocalSocket);
    If ( RC <> GSK_OK );
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendDie('GSK_Attribute_Set_Numeric_Value(): ' + %Str(GSK_StrError(RC)));
    EndIf;
 
    RC = GSK_Attribute_Set_Numeric_Value(GSKHandler :GSK_HANDSHAKE_TIMEOUT :10);
    If ( RC <> GSK_OK );
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendDie('GSK_Attribute_Set_Numeric_Value(): ' + %Str(GSK_StrError(RC)));
    EndIf;
 
    RC = GSK_Secure_Soc_Init(GSKHandler);
    If ( RC <> GSK_OK );
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendDie('GSK_Secure_Soc_Init(): ' + %Str(GSK_StrError(RC)));
    EndIf;
  EndIf;
@@ -284,10 +284,10 @@ DCL-PROC ManageSendingStuff;
  SendStatus('Start login at host ...');
  Exec SQL SET :Work = ENCRYPT_TDES(:pPassword, :Key);
  Data = pUser + %TrimR(Work);
- SendData(LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
- RC = RecieveData(LocalSocket :%Addr(Data) :%Size(Data));
+ SendData(pUseTLS :LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
+ RC = RecieveData(pUseTLS :LocalSocket :%Addr(Data) :%Size(Data));
  If ( RC <= 0 );
-   CleanUp_Socket(LocalSocket);
+   CleanUp_Socket(pUseTLS :LocalSocket);
    SendDie('Login failed.');
  EndIf;
 
@@ -295,13 +295,13 @@ DCL-PROC ManageSendingStuff;
  Data = %SubSt(Data :1 :%Scan('>' :Data));
  Select;
    When ( Data = '*NOLOGINDATA>' );
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendDie('No login data recieved.');
    When ( Data = '*NOPWD>' );
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendDie('Wrong password > ' + %TrimR(Work));
    When ( Data = '*NOACCESS>' );
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendDie('Access denied > ' + %TrimR(Work));
    When ( Data = '*OK>' );
      SendStatus('Login ok.');
@@ -324,7 +324,7 @@ DCL-PROC ManageSendingStuff;
  EndIf;
  FD = System(SaveCommand);
  If ( FD < 0 );
-   CleanUp_Socket(LocalSocket);
+   CleanUp_Socket(pUseTLS :LocalSocket);
    System('DLTF FILE(QTEMP/SND)');
    SendDie('Error occured while saving data. See joblog.');
  EndIf;
@@ -333,7 +333,7 @@ DCL-PROC ManageSendingStuff;
  Monitor;
    EC#ZCLIENT(P_SAVE :P_FILE);
    On-Error;
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      IFS_Unlink(P_FILE);
      System('DLTF FILE(QTEMP/SND)');
      SendDie('Error occured while preparing savefile. See joblog.');
@@ -353,14 +353,14 @@ DCL-PROC ManageSendingStuff;
           'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) SAVF(QTEMP/RCV) ' +
           'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
  EndIf;
- SendData(LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
+ SendData(pUseTLS :LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
 
  // Send object
  SendStatus('Sending data to host ...');
  FD = IFS_Open(P_FILE :O_RDONLY + O_LARGEFILE);
  If ( FD < 0 );
    ErrNumber = ErrNo;
-   CleanUp_Socket(LocalSocket);
+   CleanUp_Socket(pUseTLS :LocalSocket);
    IFS_Unlink(P_FILE);
    SendDie('Error occured while reading file > ' + %Str(StrError(ErrNumber)));
  EndIf;
@@ -371,30 +371,30 @@ DCL-PROC ManageSendingStuff;
      IFS_Close(FD);
      IFS_Unlink(P_FILE);
      File = %SubSt(File :1 :FileLength) + '*EOF>';
-     SendData(LocalSocket :%Addr(File) :FileLength + 5);
+     SendData(pUseTLS :LocalSocket :%Addr(File) :FileLength + 5);
      Leave;
    EndIf;
    Bytes += FileLength;
    SendStatus('Sending data to host, ' + %Char(%DecH(Bytes/1024 :17 :2)) +
              ' KBytes transfered ...');
-   SendData(LocalSocket :%Addr(File) :FileLength);
+   SendData(pUseTLS :LocalSocket :%Addr(File) :FileLength);
    Clear File;
  EndDo;
 
  // Waiting for success-message
  Clear Data;
  SendStatus('Please wait, object(s) will be restored on the host system ...');
- RC = RecieveData(LocalSocket :%Addr(Data) :%Size(Data));
+ RC = RecieveData(pUseTLS :LocalSocket :%Addr(Data) :%Size(Data));
  Select;
    When ( %Scan('*ERROR_RESTORE>' :Data) > 0 );
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendDie('Operation canceled: ' + %SubSt(Data :%Scan('>' :Data) + 1 :60));
    When ( %Scan('*OK>' :Data) > 0 );
      SendStatus('Operation was successfull.');
      System('DLTF FILE(QTEMP/SND)');
  EndSl;
 
- CleanUp_Socket(LocalSocket);
+ CleanUp_Socket(pUseTLS :LocalSocket);
 
  Return;
 
@@ -434,7 +434,8 @@ END-PROC;
 //**************************************************************************
 DCL-PROC SendData;
  DCL-PI *N INT(10);
-   pSocket INT(10) CONST;
+   pUseTLS IND CONST;
+   pSocketHandler INT(10) CONST;
    pData POINTER VALUE;
    pLength INT(10) CONST;
  END-PI;
@@ -444,7 +445,7 @@ DCL-PROC SendData;
  DCL-S Buffer CHAR(32766) BASED(pData);
  //-------------------------------------------------------------------------
 
- If UseSSL;
+ If pUseTLS;
    RC = GSK_Secure_Soc_Write(GSKHandler :%Addr(Buffer) :pLength :GSKLength);
    If ( RC = GSK_OK );
      RC = GSKLength;
@@ -452,7 +453,7 @@ DCL-PROC SendData;
      Clear RC;
    EndIf;
  Else;
-   RC = Send(pSocket :%Addr(Buffer) :pLength :0);
+   RC = Send(pSocketHandler :%Addr(Buffer) :pLength :0);
  EndIf;
 
  Return RC;
@@ -462,7 +463,8 @@ END-PROC;
 //**************************************************************************
 DCL-PROC RecieveData;
  DCL-PI *N INT(10);
-   pSocket INT(10) CONST;
+   pUseTLS IND CONST;
+   pSocketHandler INT(10) CONST;
    pData POINTER VALUE;
    pLength INT(10) VALUE;
  END-PI;
@@ -472,14 +474,14 @@ DCL-PROC RecieveData;
  DCL-S Buffer CHAR(32766) BASED(pData);
  //-------------------------------------------------------------------------
 
- If UseSSL;
+ If pUseTLS;
    RC = GSK_Secure_Soc_Read(GSKHandler :%Addr(Buffer) :pLength :GSKLength);
    If ( RC = GSK_OK ) And ( GSKLength > 0 );
      Buffer = %SubSt(Buffer :1 :GSKLength);
    EndIf;
    RC = GSKLength;
  Else;
-   RC = Recv(pSocket :%Addr(Buffer) :pLength :0);
+   RC = Recv(pSocketHandler :%Addr(Buffer) :pLength :0);
  EndIf;
 
  Return RC;
@@ -489,15 +491,16 @@ END-PROC;
 //**************************************************************************
 DCL-PROC CleanUp_Socket;
  DCL-PI *N;
-   pSocket INT(10) CONST;
+   pUseTLS IND CONST;
+   pSocketHandler INT(10) CONST;
  END-PI;
  //-------------------------------------------------------------------------
 
- If UseSSL;
+ If pUseTLS;
    GSK_Secure_Soc_Close(GSKHandler);
    GSK_Environment_Close(GSKEnvironment);
  EndIf;
- Close_Socket(pSocket);
+ Close_Socket(pSocketHandler);
 
 END-PROC;
 

@@ -1,11 +1,9 @@
              CMD        PROMPT('Send objects') TEXT('Send objects') +
                           ALLOW(*ALL) MODE(*ALL) ALWLMTUSR(*NO) +
-                          HLPID(*CMD) HLPPNLGRP(YOURLIB/ZCLIENT) +
-                          PRDLIB(YOURLIB)
+                          HLPID(*CMD) HLPPNLGRP($$YOURLIB/ZCLIENT) +
+                          PRDLIB($$YOURLIB)
 
-             PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) +
-                          CHOICE('Qualified objectname') +
-                          PROMPT('Object')
+             PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) PROMPT('Object')
 
              PARM       KWD(OBJTYPE) TYPE(*CHAR) LEN(10) RSTD(*YES) +
                           DFT(*ALL) VALUES(*ALL *ALRTBL *BNDDIR +
@@ -24,17 +22,13 @@
                           *USRIDX *USRQ *USRSPC *VLDL *WSCST) +
                           CHOICE('Type, *ALL') PROMPT('Objecttype')
 
-             PARM       KWD(HOST) TYPE(*CHAR) LEN(16) +
-                          CHOICE('IP-Adress or Hostname') +
-                          PROMPT('Host')
+             PARM       KWD(HOST) TYPE(*CHAR) LEN(16) CHOICE('Host') +
+                          PROMPT('IP-Adress or Hostname')
 
-             PARM       KWD(USER) TYPE(*NAME) LEN(10) +
-                          CHOICE('Username on host') +
-                          PROMPT('User')
+             PARM       KWD(USER) TYPE(*NAME) LEN(10) PROMPT('User')
 
              PARM       KWD(PASS) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
-                          DSPINPUT(*NO) CHOICE('Password for +
-                          selected user') PROMPT('Password')
+                          DSPINPUT(*NO) PROMPT('Password')
 
              PARM       KWD(TGTRLS) TYPE(*CHAR) LEN(8) RSTD(*YES) +
                           DFT(*CURRENT) VALUES(*CURRENT *PRV) +
@@ -47,8 +41,8 @@
              PARM       KWD(PORT) TYPE(*DEC) LEN(5) DFT(19335) +
                           RANGE(1 65535) PROMPT('Port')
 
-             PARM       KWD(TLS) TYPE(*CHAR) LEN(4) RSTD(*YES) +
-                          DFT(*NO) VALUES(*YES *NO) PROMPT('Send +
+             PARM       KWD(TLS) TYPE(*LGL) RSTD(*YES) DFT(*NO) +
+                          SPCVAL((*YES '1') (*NO '0')) PROMPT('Send +
                           data over TLS')
 
              PARM       KWD(DTACPR) TYPE(*CHAR) LEN(7) RSTD(*YES) +

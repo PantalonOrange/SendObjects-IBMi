@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018 Christian Brunner
+//- Copyright (c) 2018, 2019 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -19,9 +19,9 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-// 00000000 BRC 25.07.2018
+//  Created by BRC on 25.07.2018 - 27.12.2018
 
-// Socketclient with or without tls/ssl to send objects to another IBMi
+// Socketclient to send objects over tls to another IBMi
 //   Based on the socketapi from scott klement - (c) Scott Klement
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
@@ -32,7 +32,7 @@ CTL-OPT MAIN(Main);
 
 DCL-PR Main EXTPGM('ZSERVERRG');
   Port UNS(5) CONST;
-  UseSSL CHAR(4) CONST OPTIONS(*NOPASS);
+  UseTLS IND CONST;
 END-PR;
 
 /INCLUDE QRPGLECPY,SOCKET_H
@@ -40,22 +40,34 @@ END-PR;
 /INCLUDE QRPGLECPY,QMHSNDPM
 /INCLUDE QRPGLECPY,SYSTEM
 
-DCL-PR CheckShutDown END-PR;
+DCL-PR CheckShutDown;
+  UseTLS IND CONST;
+END-PR;
 DCL-PR MakeListener;
   Port UNS(5) CONST;
+  UseTLS IND;
+  ConnectFrom POINTER;
 END-PR;
-DCL-PR AcceptConnection END-PR;
-DCL-PR HandleClient END-PR;
-DCL-PR GenerateGSKEnvironment END-PR;
+DCL-PR AcceptConnection;
+  UseTLS IND CONST;
+  ConnectFrom POINTER CONST;
+END-PR;
+DCL-PR HandleClient;
+  UseTLS IND CONST;
+END-PR;
+DCL-PR GenerateGSKEnvironment IND END-PR;
 DCL-PR SendData INT(10);
+  UseTLS IND CONST;
   Data POINTER VALUE;
   Length INT(10) CONST;
 END-PR;
 DCL-PR RecieveData INT(10);
+  UseTLS IND CONST;
   Data POINTER VALUE;
   Length INT(10) VALUE;
 END-PR;
 DCL-PR CleanUp_Socket;
+  UseTLS IND CONST;
   SocketHandler INT(10) CONST;
 END-PR;
 DCL-PR CleanTemp END-PR;
@@ -70,14 +82,12 @@ DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
 DCL-C P_FILE '/tmp/rcv.file';
 DCL-C TRUE *ON;
 DCL-C FALSE *OFF;
-DCL-C APP_ID 'APP_TLS_SOCKET';
+DCL-C APP_ID 'TLS_SOCKET';
 
 /INCLUDE QRPGLECPY,ERRNO_H
 /INCLUDE QRPGLECPY,PSDS
 
 DCL-S Loop IND INZ(TRUE);
-DCL-S UseSSL IND INZ(FALSE);
-DCL-S ConnectFrom POINTER;
 DCL-S ListenerSocket INT(10) INZ;
 DCL-S LocalSocket INT(10) INZ;
 DCL-S GSKEnvironment POINTER INZ;
@@ -86,9 +96,9 @@ DCL-S GSKHandler POINTER INZ;
 DCL-DS ErrorDS_Template QUALIFIED TEMPLATE;
   NbrBytesPrv INT(10) INZ(%SIZE(ErrorDS_Template));
   NbrBytesAvl INT(10);
-  MsgID CHAR(7);
+  MessageID CHAR(7);
   Reserved1 CHAR(1);
-  MsgData CHAR(512);
+  MessageData CHAR(512);
 END-DS;
 
 
@@ -96,32 +106,30 @@ END-DS;
 DCL-PROC Main;
  DCL-PI *N;
    pPort UNS(5) CONST;
-   pUseSSL CHAR(4) CONST OPTIONS(*NOPASS);
+   pUseTLS IND CONST;
  END-PI;
+
+ DCL-S UseTLS IND INZ(FALSE);
+ DCL-S ConnectFrom POINTER;
  //-------------------------------------------------------------------------
 
+ UseTLS = pUseTLS;
  *INLR = TRUE;
 
- If ( %Parms() = 2 );
-   UseSSL = ( pUseSSL = '*YES' );
- Else;
-   UseSSL = FALSE;
- EndIf;
-
- MakeListener(pPort);
- CheckShutDown();
+ MakeListener(pPort :UseTLS :ConnectFrom);
+ CheckShutDown(UseTLS);
 
  DoW ( Loop );
 
-   AcceptConnection();
+   AcceptConnection(UseTLS :ConnectFrom);
 
    Monitor;
-     HandleClient();
+     HandleClient(UseTLS);
      On-Error;
    EndMon;
 
    CleanTemp();
-   CleanUp_Socket(LocalSocket);
+   CleanUp_Socket(UseTLS :LocalSocket);
 
  EndDo;
 
@@ -129,10 +137,14 @@ END-PROC;
 
 //**************************************************************************
 DCL-PROC CheckShutDown;
+ DCL-PI *N;
+   pUseTLS IND CONST;
+ END-PI;
+ //-------------------------------------------------------------------------
 
  If ( %ShtDn() );
    Loop = FALSE;
-   CleanUp_Socket(LocalSocket);
+   CleanUp_Socket(pUseTLS :LocalSocket);
  EndIf;
 
 END-PROC;
@@ -141,6 +153,8 @@ END-PROC;
 DCL-PROC MakeListener;
  DCL-PI *N;
    pPort UNS(5) CONST;
+   pUseTLS IND;
+   pConnectFrom POINTER;
  END-PI;
 
  DCL-S BindTo POINTER;
@@ -148,19 +162,19 @@ DCL-PROC MakeListener;
  DCL-S ErrNumber INT(10) INZ;
  //-------------------------------------------------------------------------
 
- If UseSSL;
-   GenerateGSKEnvironment();
+ If pUseTLS;
+   pUseTLS = GenerateGSKEnvironment();
  EndIf;
 
  // Allocate space for socket addresses
  Length      = %Size(SockAddr_In);
  BindTo      = %Alloc(Length);
- ConnectFrom = %Alloc(Length);
+ pConnectFrom = %Alloc(Length);
 
  // Make a new socket
  ListenerSocket = Socket(AF_INET :SOCK_STREAM :IPPROTO_IP);
  If ( ListenerSocket < 0 );
-   CleanUp_Socket(ListenerSocket);
+   CleanUp_Socket(pUseTLS :ListenerSocket);
    SendDie('socket(): ' + %Str(StrError(ErrNo)));
  EndIf;
 
@@ -173,14 +187,14 @@ DCL-PROC MakeListener;
 
  If ( Bind(ListenerSocket :BindTo :Length) < 0 );
    ErrNumber = ErrNo;
-   CleanUp_Socket(ListenerSocket);
+   CleanUp_Socket(pUseTLS :ListenerSocket);
    SendDie('bind(): ' + %Str(StrError(ErrNumber)));
  EndIf;
 
  // Indicate that we want to listen for connections
  If ( Listen(ListenerSocket :5) < 0 );
    ErrNumber = ErrNo;
-   CleanUp_Socket(ListenerSocket);
+   CleanUp_Socket(pUseTLS :ListenerSocket);
    SendDie('listen(): ' + %Str(StrError(ErrNumber)));
  EndIf;
 
@@ -188,6 +202,10 @@ END-PROC;
 
 //**************************************************************************
 DCL-PROC AcceptConnection;
+ DCL-PI *N;
+   pUseTLS IND CONST;
+   pConnectFrom POINTER CONST;
+ END-PI;
 
  DCL-S Length INT(10) INZ;
  DCL-S ErrNumber INT(10) INZ;
@@ -197,45 +215,48 @@ DCL-PROC AcceptConnection;
  DoU ( Length = %Size(SockAddr_In) );
 
    Length = %Size(SockAddr_In);
-   LocalSocket  = Accept(ListenerSocket :ConnectFrom :Length);
+   LocalSocket  = Accept(ListenerSocket :pConnectFrom :Length);
    If ( LocalSocket < 0 );
      SendJobLog('accept(): ' + %Str(StrError(ErrNo)));
-     CleanUp_Socket(ListenerSocket);
+     CleanUp_Socket(pUseTLS :ListenerSocket);
      Return;
    EndIf;
 
    If ( Length <> %Size(SockAddr_In));
-     Close_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :ListenerSocket);
      Return;
    EndIf;
 
  EndDo;
 
- If UseSSL;
+ If pUseTLS;
    If ( GSK_Secure_Soc_Open(GSKEnvironment: GSKHandler) <> GSK_OK );
      ErrNumber = ErrNo;
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendJobLog('GSK_Secure_Soc_Open(): ' + %Str(GSK_StrError(ErrNumber)));
    EndIf;
    If ( GSK_Attribute_Set_Numeric_Value(GSKHandler :GSK_FD :LocalSocket) <> GSK_OK );
      ErrNumber = ErrNo;
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendJobLog('GSK_Attribute_Set_Numeric_Value(): ' + %Str(GSK_StrError(ErrNumber)));
    EndIf;
    If ( GSK_Secure_Soc_Init(GSKHandler) <> GSK_OK );
      ErrNumber = ErrNo;
-     CleanUp_Socket(LocalSocket);
+     CleanUp_Socket(pUseTLS :LocalSocket);
      SendJobLog('GSK_Secure_Soc_Init(): ' + %Str(GSK_StrError(ErrNumber)));
    EndIf;
  EndIf;
 
- P_SockAddr = ConnectFrom;
+ P_SockAddr = pConnectFrom;
  ClientIP   = %Str(INet_NTOA(Sin_Addr));
 
 END-PROC;
 
 //**************************************************************************
 DCL-PROC HandleClient;
+ DCL-PI *N;
+   pUseTLS IND CONST;
+ END-PI;
 
  DCL-PR IFS_Open INT(10) EXTPROC('open');
    Filename  POINTER VALUE OPTIONS(*STRING);
@@ -269,7 +290,7 @@ DCL-PROC HandleClient;
    File CHAR(64) CONST;
  END-PR;
 
- DCL-S KEY CHAR(40) INZ('yourhiddenkey');
+ DCL-S KEY CHAR(40) INZ('yourkey');
 
  DCl-C O_WRONLY 2;
  DCL-C O_CREAT 8;
@@ -301,10 +322,10 @@ DCL-PROC HandleClient;
  //-------------------------------------------------------------------------
 
  // User and password recieve and check / change to called user
- RC = RecieveData(%Addr(Data) :%Size(Data));
+ RC = RecieveData(pUseTLS :%Addr(Data) :%Size(Data));
  If ( RC <= 0 ) Or ( Data = '' );
    Data = '*NOLOGINDATA>';
-   SendData(%Addr(Data) :%Len(%Trim(Data)));
+   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
    SendJobLog('+> No userinformations passed');
    Return;
  EndIf;
@@ -315,7 +336,7 @@ DCL-PROC HandleClient;
  Clear Key;
  If ( SQLCode <> 0 );
    Data = '*NOPWD>' + %Char(SQLCode);
-   SendData(%Addr(Data) :%Len(%Trim(Data)));
+   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
    SendJobLog('+> Password decryption failed for user ' + %TrimR(User) + ': ' + %Char(SQLCode));
    Return;
  EndIf;
@@ -323,28 +344,28 @@ DCL-PROC HandleClient;
  OriginalUser = PSDS.UserName;
  EC#QSYGETPH(User :Password :UserHandler :ErrorDS :UserLength :UserCCSID);
  If ( ErrorDS.NbrBytesAvl > 0 );
-   Data = '*NOACCESS>' + ErrorDS.MsgID;
-   SendData(%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Login failed for user ' + %TrimR(User) + ': ' + ErrorDS.MsgID);
+   Data = '*NOACCESS>' + ErrorDS.MessageID;
+   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+   SendJobLog('+> Login failed for user ' + %TrimR(User) + ': ' + ErrorDS.MessageID);
    Return;
  EndIf;
 
  Clear Password;
  EC#QWTSETP(UserHandler :ErrorDS);
  If ( ErrorDS.NbrBytesAvl > 0 );
-   Data = '*NOACCESS>' + ErrorDS.MsgID;
-   SendData(%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> No access for userprofile ' + %TrimR(User) + ': ' + ErrorDS.MsgID);
+   Data = '*NOACCESS>' + ErrorDS.MessageID;
+   SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
+   SendJobLog('+> No access for userprofile ' + %TrimR(User) + ': ' + ErrorDS.MessageID);
    Return;
  EndIf;
 
  // Login completed
  Data = '*OK>';
- SendData(%Addr(Data) :%Len(%Trim(Data)));
+ SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
  SendJobLog('+> User logged in successfully: ' + %TrimR(User));
 
  // Handle incomming file- and restore informations
- RecieveData(%Addr(Restore) :%Size(Restore));
+ RecieveData(pUseTLS :%Addr(Restore) :%Size(Restore));
 
  // Handle incomming data
  FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_LARGEFILE
@@ -353,7 +374,7 @@ DCL-PROC HandleClient;
  Reset Bytes;
 
  DoW ( Loop ) And ( FileHandler >= 0 );
-   FileLength = RecieveData(%Addr(FileData) :%Size(FileData));
+   FileLength = RecieveData(pUseTLS :%Addr(FileData) :%Size(FileData));
    If ( FileLength <= 0 );
      IFS_Close(FileHandler);
      Leave;
@@ -390,7 +411,7 @@ DCL-PROC HandleClient;
      Data = '*ERROR_RESTORE> ' + %Str(StrError(ErrNo));
    EndIf;
  EndIf;
- SendData(%Addr(Data) :%Len(%Trim(Data)));
+ SendData(pUseTLS :%Addr(Data) :%Len(%Trim(Data)));
 
  // Switch back to original userprofile
  EC#QSYGETPH(OriginalUser :'*NOPWD' :UserHandler :ErrorDS);
@@ -402,6 +423,7 @@ END-PROC;
 
 //**************************************************************************
 DCL-PROC GenerateGSKEnvironment;
+ DCL-PI *N IND END-PI;
 
  DCL-S Success IND INZ;
  //-------------------------------------------------------------------------
@@ -409,53 +431,51 @@ DCL-PROC GenerateGSKEnvironment;
  Success = ( GSK_Environment_Open(GSKEnvironment) = GSK_OK );
  If Not Success;
    SendJobLog('GSK_Environment_Open(): ' + %Str(GSK_StrError(ErrNo)));
-   UseSSL = Success;
  EndIf;
 
- If Success And UseSSL;
+ If Success;
    Success = ( GSK_Attribute_Set_Buffer(GSKEnvironment :GSK_OS400_APPLICATION_ID
                                         :APP_ID :0) = GSK_OK );
    If Not Success;
      SendJobLog('GSK_Attribute_Set_Buffer(): ' + %Str(GSK_StrError(ErrNo)));
      GSK_Environment_Close(GSKEnvironment);
-     UseSSL = Success;
    EndIf;
  EndIf;
 
- If Success And UseSSL;
+ If Success;
    Success = ( GSK_Attribute_Set_Enum(GSKEnvironment :GSK_SESSION_TYPE
                                       :GSK_SERVER_SESSION) = GSK_OK );
    If Not Success;
      SendJobLog('GSK_Attribute_Set_Enum(): ' + %Str(GSK_StrError(ErrNo)));
      GSK_Environment_Close(GSKEnvironment);
-     UseSSL = Success;
    EndIf;
  EndIf;
 
- If Success And UseSSL;
+ If Success;
    Success = ( GSK_Attribute_Set_Enum(GSKEnvironment :GSK_CLIENT_AUTH_TYPE
                                       :GSK_CLIENT_AUTH_FULL) = GSK_OK );
    If Not Success;
      SendJobLog('GSK_Attribute_Set_Enum(): ' + %Str(GSK_StrError(ErrNo)));
      GSK_Environment_Close(GSKEnvironment);
-     UseSSL = Success;
    EndIf;
  EndIf;
 
- If Success And UseSSL;
+ If Success;
    Success = ( GSK_Environment_Init(GSKEnvironment) = GSK_OK );
    If Not Success;
      SendJobLog('GSK_Environment_Init(): ' + %Str(GSK_StrError(ErrNo)));
      GSK_Environment_Close(GSKEnvironment);
-     UseSSL = Success;
    EndIf;
  EndIf;
+
+ Return Success;
 
 END-PROC;
 
 //**************************************************************************
 DCL-PROC SendData;
  DCL-PI *N INT(10);
+   pUseTLS IND CONST;
    pData POINTER VALUE;
    pLength INT(10) CONST;
  END-PI;
@@ -465,7 +485,7 @@ DCL-PROC SendData;
  DCL-S Buffer CHAR(32766) BASED(pData);
  //-------------------------------------------------------------------------
 
- If UseSSL;
+ If pUseTLS;
    RC = GSK_Secure_Soc_Write(GSKHandler :%Addr(Buffer) :pLength :GSKLength);
    If ( RC <> GSK_OK );
      SendJobLog('GSK_Secure_Soc_Write(): ' + %Str(GSK_StrError(ErrNo)));
@@ -482,6 +502,7 @@ END-PROC;
 //**************************************************************************
 DCL-PROC RecieveData;
  DCL-PI *N INT(10);
+   pUseTLS IND CONST;
    pData POINTER VALUE;
    pLength INT(10) VALUE;
  END-PI;
@@ -491,7 +512,7 @@ DCL-PROC RecieveData;
  DCL-S Buffer CHAR(32766) BASED(pData);
  //-------------------------------------------------------------------------
 
- If UseSSL;
+ If pUseTLS;
    RC = GSK_Secure_Soc_Read(GSKHandler :%Addr(Buffer) :pLength :GSKLength);
    If ( RC <> GSK_OK );
      SendJobLog('GSK_Secure_Soc_Read(): ' + %Str(GSK_StrError(ErrNo)));
@@ -525,16 +546,17 @@ END-PROC;
 //**************************************************************************
 DCL-PROC CleanUp_Socket;
  DCL-PI *N;
-   pSocket INT(10) CONST;
+   pUseTLS IND CONST;
+   pSocketHandler INT(10) CONST;
  END-PI;
  //-------------------------------------------------------------------------
 
- If UseSSL;
+ If pUseTLS;
    GSK_Secure_Soc_Close(GSKHandler);
-   //GSK_Environment_Close(GSKEnvironment);
+   GSK_Environment_Close(GSKEnvironment);
  EndIf;
 
- Close_Socket(pSocket);
+ Close_Socket(pSocketHandler);
 
 END-PROC;
 
