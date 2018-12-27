@@ -19,3 +19,6 @@ Bugfixes and new authentication-mode (with userprofile or *NONE)
 
 ## Command ZCLIENT
 ![ZCLIENT](https://github.com/PantalonOrange/SendObjects-IBMi/blob/master/zclient.gif)
+
+## Command ZSERVER
+![ZSERVER](https://github.com/PantalonOrange/SendObjects-IBMi/blob/master/zserver.png)
