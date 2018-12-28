@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 30.08.2018 - 27.12.2018
+//  Created by BRC on 30.08.2018 - 28.12.2018
 
 // Socketclient to send objects over tls to another IBMi
 //   Based on the socketapi from scott klement - (c) Scott Klement
@@ -46,6 +46,7 @@ END-PR;
 /INCLUDE QRPGLECPY,GSKSSL_H
 /INCLUDE QRPGLECPY,QMHSNDPM
 /INCLUDE QRPGLECPY,SYSTEM
+/INCLUDE QRPGLECPY,PSDS
 
 DCL-PR ManageSendingStuff;
   QualifiedObjectName CHAR(20) CONST;
@@ -136,39 +137,13 @@ DCL-PROC ManageSendingStuff;
    pDtaCpr CHAR(7) CONST;
  END-PI;
 
- DCL-PR IFS_Open INT(10) EXTPROC('open');
-   FileName POINTER VALUE OPTIONS(*STRING);
-   OpenFlags INT(10) VALUE;
-   Mode UNS(10) VALUE OPTIONS(*NOPASS);
-   Codepage UNS(10) VALUE OPTIONS(*NOPASS);
- END-PR;
- DCL-PR IFS_Read INT(10) EXTPROC('read');
-   Handle INT(10) VALUE;
-   Buffer POINTER VALUE;
-   Bytes UNS(10) VALUE;
- END-PR;
- DCL-PR IFS_Close INT(10) EXTPROC('close');
-   Handle INT(10) VALUE;
- END-PR;
- DCL-PR IFS_Unlink INT(10) EXTPROC('unlink');
-   Path POINTER VALUE OPTIONS(*STRING);
- END-PR;
- DCL-PR IFS_Stat INT(10) EXTPROC('stat');
-   Path POINTER VALUE OPTIONS(*STRING);
-   Buffer POINTER VALUE;
- END-PR;
  DCL-PR EC#ZCLIENT EXTPGM('ZCLIENTCL');
    Save CHAR(64) CONST;
    File CHAR(64) CONST;
  END-PR;
 
- DCL-C O_RDONLY 1;
- DCL-C O_WRONLY 2;
- DCL-C O_CREAT 8;
- DCL-C O_TRUNC 64;
- DCL-C O_TEXTDATA 16777216;
- DCL-C O_CODEPAGE 8388608;
- DCL-C O_LARGEFILE 536870912;
+/INCLUDE QRPGLECPY,IFS_H
+
  DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/SND.FILE';
  DCL-C P_FILE '/tmp/snd.file';
 
@@ -279,6 +254,24 @@ DCL-PROC ManageSendingStuff;
      SendDie('GSK_Secure_Soc_Init(): ' + %Str(GSK_StrError(RC)));
    EndIf;
  EndIf;
+
+ // Send protocoll and session-name
+ Data = '*ZZv1>' + %TrimR(PSDS.JobName);
+ SendData(pUseTLS :LocalSocket :%Addr(Data) :%Len(%TrimR(Data)));
+ RC = RecieveData(pUseTLS :LocalSocket :%Addr(Data) :%Size(Data));
+ Select;
+   When ( RC <= 0 );
+     CleanUp_Socket(pUseTLS :LocalSocket);
+     SendDie('Can''t connect to host.');
+   When ( Data = '*UNKNOWNSESSION>' );
+     CleanUp_Socket(pUseTLS :LocalSocket);
+     SendDie('Unknown session recieved. Connection was canceled.');
+   When ( Data = '*UNKNOWNPROTOCOLL>' );
+     CleanUp_Socket(pUseTLS :LocalSocket);
+     SendDie('Unknown protcoll recieved. Connection was canceled.');
+   When ( Data = '*OK>' );
+     SendStatus('Connection successfull.');
+ EndSl;
 
  // Send username and password to host when selected
  If ( pUser <> '*NONE' );
