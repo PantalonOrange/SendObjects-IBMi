@@ -22,13 +22,14 @@
                           *USRIDX *USRQ *USRSPC *VLDL *WSCST) +
                           CHOICE('Type, *ALL') PROMPT('Objecttype')
 
-             PARM       KWD(HOST) TYPE(*CHAR) LEN(16) CHOICE('Host') +
-                          PROMPT('IP-Adress or Hostname')
+             PARM       KWD(RMTSYS) TYPE(*CHAR) LEN(16) +
+                          CHOICE('Remotesystem') PROMPT('IP-Adress +
+                          or Hostname')
 
-             PARM       KWD(USER) TYPE(*NAME) LEN(10) SPCVAL((*NONE +
+             PARM       KWD(USRPRF) TYPE(*NAME) LEN(10) SPCVAL((*NONE +
                           *NONE)) PROMPT('User')
 
-             PARM       KWD(PASS) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
+             PARM       KWD(PWD) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
                           DSPINPUT(*NO) PROMPT('Password')
 
              PARM       KWD(TGTRLS) TYPE(*CHAR) LEN(8) RSTD(*YES) +
@@ -51,6 +52,16 @@
                           *MEDIUM *HIGH) PMTCTL(*PMTRQS) +
                           PROMPT('Datacompression')
 
+             PARM       KWD(SAVF) TYPE(SAVOBJ) PMTCTL(*PMTRQS) +
+                          PROMPT('Savefile')
+
+             PARM       KWD(PATH) TYPE(*PNAME) LEN(128) +
+                          DFT('/tmp/snd.file') PMTCTL(*PMTRQS) +
+                          PROMPT('Workobject')
+
  OBJLIB:     QUAL       TYPE(*SNAME)
              QUAL       TYPE(*SNAME) DFT(*LIBL) SPCVAL((*LIBL +
                           *LIBL)) PROMPT('Library')
+
+ SAVOBJ:     QUAL       TYPE(*SNAME) DFT(SND)
+             QUAL       TYPE(*SNAME) DFT(QTEMP) PROMPT('Library')
