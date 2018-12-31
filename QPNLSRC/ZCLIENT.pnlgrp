@@ -86,4 +86,16 @@ Send data without using TLS.
 :P.*HIGH is the default value
 :EHELP.
 
+:HELP NAME='ZCLIENT/SAVF'.Savefile - Help
+:XH3.Define the place and name for the temporary savefile
+:P.Please define the library and objectname for the temporary savefile.
+:P.QTEMP/SND is the default value
+:EHELP.
+
+:HELP NAME='ZCLIENT/PATH'.Path - Help
+:XH3.Define path for the temporary workfile
+:P.Please define the path for the temporary workfile.
+:P."/tmp/snd.file" is the default value
+:EHELP.
+
 :EPNLGRP.
