@@ -10,6 +10,11 @@ Based on the socket api from scott klement
 To create objects:
  -> Copy source to your sourcefiles (qrpglesrc, qcmdsrc, etc) and compile them via seu-option "14"
 
+## Update 08.01.2019
+### ZCLIENT
+Add parms to define your own places for workfiles.
+### ZSERVER
+Add parm to define your own AppID (certificate) from your DCM.
 
 ## Update 27.12.2018
 Bugfixes, hide regular parameters in commands and new authentication-mode (with userprofile or *NONE)
