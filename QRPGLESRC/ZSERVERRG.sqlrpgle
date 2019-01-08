@@ -34,6 +34,7 @@ DCL-PR Main EXTPGM('ZSERVERRG');
   Port UNS(5) CONST;
   Authentication CHAR(7) CONST;
   UseTLS IND CONST;
+  AppID CHAR(32) CONST;
 END-PR;
 
 /INCLUDE QRPGLECPY,SOCKET_H
@@ -49,6 +50,7 @@ END-PR;
 DCL-PR MakeListener;
   Port UNS(5) CONST;
   UseTLS IND;
+  AppID CHAR(32) CONST;
   ConnectFrom POINTER;
   Socket LIKEDS(Socket_Template);
   GSK LIKEDS(GSK_Template);
@@ -69,6 +71,7 @@ DCL-PR HandleClient;
 END-PR;
 DCL-PR GenerateGSKEnvironment IND;
   GSK LIKEDS(GSK_Template);
+  AppID CHAR(32) CONST;
 END-PR;
 DCL-PR SendData INT(10);
   UseTLS IND CONST;
@@ -100,12 +103,11 @@ END-PR;
 DCL-C TRUE *ON;
 DCL-C FALSE *OFF;
 
-DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
-DCL-C P_FILE '/tmp/rcv.file';
-DCL-C APP_ID 'APP_TLS_SOCKET';
-
 /INCLUDE QRPGLECPY,ERRNO_H
 /INCLUDE QRPGLECPY,PSDS
+
+DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
+DCL-C P_FILE '/tmp/rcv.file';
 
 DCL-DS Socket_Template TEMPLATE QUALIFIED;
   Listener INT(10);
@@ -135,11 +137,12 @@ DCL-PROC Main;
    pPort UNS(5) CONST;
    pAuthentication CHAR(7) CONST;
    pUseTLS IND CONST;
+   pAppID CHAR(32) CONST;
  END-PI;
 
  DCL-S UseTLS IND INZ(FALSE);
  DCL-S ConnectFrom POINTER;
- 
+
  DCL-DS Socket LIKEDS(Socket_Template) INZ;
  DCL-DS GSK LIKEDS(GSK_Template) INZ;
  DCL-DS Lingering LIKEDS(Lingering_Template) INZ;
@@ -148,7 +151,7 @@ DCL-PROC Main;
  *INLR = TRUE;
  UseTLS = pUseTLS;
 
- MakeListener(pPort :UseTLS :ConnectFrom :Socket :GSK :Lingering);
+ MakeListener(pPort :UseTLS :pAppID :ConnectFrom :Socket :GSK :Lingering);
 
  DoU DoShutDown(UseTLS :Socket :GSK);
 
@@ -191,6 +194,7 @@ DCL-PROC MakeListener;
  DCL-PI *N;
    pPort UNS(5) CONST;
    pUseTLS IND;
+   pAppID CHAR(32) CONST;
    pConnectFrom POINTER;
    pSocket LIKEDS(Socket_Template);
    pGSK LIKEDS(GSK_Template);
@@ -204,7 +208,10 @@ DCL-PROC MakeListener;
  //-------------------------------------------------------------------------
 
  If pUseTLS;
-   pUseTLS = GenerateGSKEnvironment(pGSK);
+   pUseTLS = GenerateGSKEnvironment(pGSK :pAppID);
+   If Not pUseTLS;
+     SendJobLog('+> Server was not able to generate gsk-environment. Continue without tls');
+   EndIf;
  EndIf;
 
  Length = %Size(SockAddr_In);
@@ -355,7 +362,7 @@ DCL-PROC HandleClient;
    Work = %SubSt(Data :7 :10);
    Data = '*OK>';
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Session "' + %TrimR(Work) + '" from IP "' + %TrimR(pSocket.ClientIP) + 
+   SendJobLog('+> Session "' + %TrimR(Work) + '" from IP "' + %TrimR(pSocket.ClientIP) +
               '" connected.');
  Else;
    Data = '*UNKNOWNPROTOCOLL>';
@@ -491,10 +498,20 @@ END-PROC;
 DCL-PROC GenerateGSKEnvironment;
  DCL-PI *N IND;
    pGSK LIKEDS(GSK_Template);
+   pAppID CHAR(32) CONST;
  END-PI;
 
+ DCL-C APP_ID 'SND_IBMI_APP';
+
  DCL-S Success IND INZ;
+ DCL-S AppID VARCHAR(32) INZ;
  //-------------------------------------------------------------------------
+
+ If ( pAppID = '*DFT' );
+   AppID = APP_ID;
+ Else;
+   AppID = pAppID;
+ EndIf;
 
  Success = ( GSK_Environment_Open(pGSK.Environment) = GSK_OK );
  If Not Success;
@@ -503,7 +520,7 @@ DCL-PROC GenerateGSKEnvironment;
 
  If Success;
    Success = ( GSK_Attribute_Set_Buffer(pGSK.Environment :GSK_OS400_APPLICATION_ID
-                                        :APP_ID :0) = GSK_OK );
+                                        :AppID :0) = GSK_OK );
    If Not Success;
      SendJobLog('GSK_Attribute_Set_Buffer(): ' + %Str(GSK_StrError(ErrNo)));
      GSK_Environment_Close(pGSK.Environment);

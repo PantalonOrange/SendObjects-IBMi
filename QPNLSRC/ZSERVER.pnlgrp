@@ -45,4 +45,12 @@ Recieve data without using TLS.
 :EPARML.
 :EHELP.
 
+:HELP NAME='ZSERVER/APPID'.ApplicationID  - Help
+:XH3.DCM-ApplicationID
+:P.
+Please select your installed ApplicationID on the DCM.
+:P.
+*DFT means SND_IBMI_APP
+:EHELP.
+
 :EPNLGRP.
