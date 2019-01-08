@@ -11,9 +11,9 @@ To create objects:
  -> Copy source to your sourcefiles (qrpglesrc, qcmdsrc, etc) and compile them via seu-option "14"
 
 ### Start the server on your IBMi like this:
-* Create your own jobdescription to start the server as a autostartjob: 
- -> ```CRTJOBD JOBD(YOURLIB/ZSERVER) TEXT('Start ZSERVER') USER(USER) RQSDTA('YOURLIB/ZSERVER AUTH(*USRPRF) TLS(*YES) APPID(*DFT)') INLLIBL(YOURLIB QTEMP)```
-* Add this jobdescription as a autostartjob to your subsystem: 
+1. Create your own jobdescription to start the server as a autostartjob:  
+```CRTJOBD JOBD(YOURLIB/ZSERVER) TEXT('Start ZSERVER') USER(USER) RQSDTA('YOURLIB/ZSERVER AUTH(*USRPRF) TLS(*YES) APPID(*DFT)') INLLIBL(YOURLIB QTEMP)```
+2. Add this jobdescription as a autostartjob to your subsystem:  
 ```ADDAJE SBSD(SUBSYSTEM) JOB(ZSERVER) JOBD(YOURLIB/ZSERVER)```
 
 ## Update 08.01.2019
