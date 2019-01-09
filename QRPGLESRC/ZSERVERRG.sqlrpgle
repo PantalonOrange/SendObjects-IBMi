@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 25.07.2018 - 09.01.2019
+//  Created by BRC on 25.07.2018 - 08.01.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   Based on the socketapi from scott klement - (c) Scott Klement
@@ -118,11 +118,11 @@ DCL-DS GSK_Template TEMPLATE QUALIFIED;
   Environment POINTER;
   SecureHandler POINTER;
 END-DS;
-DCL-DS Lingering_Template TEMPLATE QUALIFIED INZ;
+DCL-DS Lingering_Template TEMPLATE QUALIFIED;
   LingerHandler POINTER;
   Length INT(10);
 END-DS;
-DCL-DS MessageHandling_Template TEMPLATE QUALIFIED INZ;
+DCL-DS MessageHandling_Template TEMPLATE QUALIFIED;
   Length INT(10);
   Key CHAR(4);
   Error CHAR(128);
@@ -208,7 +208,7 @@ DCL-PROC MakeListener;
 
  DCL-S BindTo POINTER;
  DCL-S Length INT(10) INZ;
- DCL-S ErrNumber INT(10) INZ;
+ DCL-S ErrorNumber INT(10) INZ;
  DCL-S SockOptON IND INZ(TRUE);
  //-------------------------------------------------------------------------
 
@@ -245,15 +245,15 @@ DCL-PROC MakeListener;
  Sin_Zero   = *ALLx'00';
 
  If ( Bind(pSocket.Listener :BindTo :Length) < 0 );
-   ErrNumber = ErrNo;
+   ErrorNumber = ErrNo;
    CleanUp_Socket(pUseTLS :pSocket.Listener :pGSK.SecureHandler);
-   SendDie('bind(): ' + %Str(StrError(ErrNumber)));
+   SendDie('bind(): ' + %Str(StrError(ErrorNumber)));
  EndIf;
 
  If ( Listen(pSocket.Listener :5) < 0 );
-   ErrNumber = ErrNo;
+   ErrorNumber = ErrNo;
    CleanUp_Socket(pUseTLS :pSocket.Listener :pGSK.SecureHandler);
-   SendDie('listen(): ' + %Str(StrError(ErrNumber)));
+   SendDie('listen(): ' + %Str(StrError(ErrorNumber)));
  EndIf;
 
  SendJobLog('+> Server is now running on port ' + %Char(pPort) + ' and ready for connections');
@@ -271,7 +271,7 @@ DCL-PROC AcceptConnection;
  END-PI;
 
  DCL-S Length INT(10) INZ;
- DCL-S ErrNumber INT(10) INZ;
+ DCL-S ErrorNumber INT(10) INZ;
  //-------------------------------------------------------------------------
 
  DoU ( Length = %Size(SockAddr_In) );
@@ -297,19 +297,19 @@ DCL-PROC AcceptConnection;
 
  If pUseTLS;
    If ( GSK_Secure_Soc_Open(pGSK.Environment: pGSK.SecureHandler) <> GSK_OK );
-     ErrNumber = ErrNo;
+     ErrorNumber = ErrNo;
      CleanUp_Socket(pUseTLS :pSocket.Talk :pGSK.SecureHandler);
-     SendJobLog('GSK_Secure_Soc_Open(): ' + %Str(GSK_StrError(ErrNumber)));
+     SendJobLog('GSK_Secure_Soc_Open(): ' + %Str(GSK_StrError(ErrorNumber)));
    EndIf;
    If ( GSK_Attribute_Set_Numeric_Value(pGSK.SecureHandler :GSK_FD :pSocket.Talk) <> GSK_OK );
-     ErrNumber = ErrNo;
+     ErrorNumber = ErrNo;
      CleanUp_Socket(pUseTLS :pSocket.Talk :pGSK.SecureHandler);
-     SendJobLog('GSK_Attribute_Set_Numeric_Value(): ' + %Str(GSK_StrError(ErrNumber)));
+     SendJobLog('GSK_Attribute_Set_Numeric_Value(): ' + %Str(GSK_StrError(ErrorNumber)));
    EndIf;
    If ( GSK_Secure_Soc_Init(pGSK.SecureHandler) <> GSK_OK );
-     ErrNumber = ErrNo;
+     ErrorNumber = ErrNo;
      CleanUp_Socket(pUseTLS :pSocket.Talk :pGSK.SecureHandler);
-     SendJobLog('GSK_Secure_Soc_Init(): ' + %Str(GSK_StrError(ErrNumber)));
+     SendJobLog('GSK_Secure_Soc_Init(): ' + %Str(GSK_StrError(ErrorNumber)));
    EndIf;
  EndIf;
 
@@ -336,7 +336,7 @@ DCL-PROC HandleClient;
 /INCLUDE QRPGLECPY,IFS_H
 /INCLUDE QRPGLECPY,SETUSR_H
 
- DCL-S KEY CHAR(40) INZ('yourkey');
+ DCL-S KEY CHAR(40) INZ('youkey');
 
  DCL-S Loop IND INZ(TRUE);
  DCL-S RestoreSuccess IND INZ(TRUE);
@@ -344,7 +344,7 @@ DCL-PROC HandleClient;
  DCL-S OriginalUser CHAR(10) INZ;
  DCL-S Data CHAR(1024) INZ;
  DCL-S Work CHAR(1024) INZ;
- DCL-S Restore CHAR(1024) INZ;
+ DCL-S RestoreCommand CHAR(1024) INZ;
 
  DCL-DS RetrievingFile QUALIFIED INZ;
    FileHandler INT(10);
@@ -370,7 +370,7 @@ DCL-PROC HandleClient;
    Data = '*OK>';
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
    SendJobLog('+> Session "' + %TrimR(Work) + '" from address "' + %TrimR(pSocket.ClientIP) +
-              '" connected.');
+              '" connected');
  Else;
    Data = '*UNKNOWNPROTOCOLL>';
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
@@ -397,7 +397,7 @@ DCL-PROC HandleClient;
 
    SwitchUserProfile.NewUser = %SubSt(Data :1 :10);
    Work = %SubSt(Data :11 :1000);
-   Exec SQL SET :SwitchUserProfile.Password = DECRYPT_BIT(BINARY(:Work), :Key);
+   Exec SQL SET :SwitchUserProfile.Password = DECRYPT_BIT(BINARY(RTRIM(:Work)), :Key);
    Clear Key;
    If ( SQLCode <> 0 );
      Data = '*NOPWD>' + %Char(SQLCode);
@@ -440,7 +440,7 @@ DCL-PROC HandleClient;
  EndIf;
 
  // Handle incomming file- and restore informations
- RecieveData(pUseTLS :pSocket :pGSK :%Addr(Restore) :%Size(Restore));
+ RecieveData(pUseTLS :pSocket :pGSK :%Addr(RestoreCommand) :%Size(RestoreCommand));
 
  // Handle incomming data
  RetrievingFile.FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_LARGEFILE
@@ -478,12 +478,12 @@ DCL-PROC HandleClient;
      RestoreSuccess = FALSE;
  EndMon;
 
- SendJobLog('+> Restore: ' + %TrimR(Restore));
+ SendJobLog('+> Restore: ' + %TrimR(RestoreCommand));
 
  If Not RestoreSuccess;
    Data = '*ERROR_RESTORE> Error occured while writing to savefile';
  Else;
-   If ( System(Restore) <> 0 );
+   If ( System(RestoreCommand) <> 0 );
      Data = '*ERROR_RESTORE> ' + %Str(StrError(ErrNo));
      RestoreSuccess = FALSE;
    EndIf;

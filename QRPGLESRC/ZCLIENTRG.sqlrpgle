@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 30.08.2018 - 31.12.2018
+//  Created by BRC on 30.08.2018 - 09.01.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   Based on the socketapi from scott klement - (c) Scott Klement
@@ -51,7 +51,7 @@ END-PR;
 /INCLUDE QRPGLECPY,PSDS
 
 DCL-PR ManageSendingStuff;
-  QualifiedObjectName 
+  QualifiedObjectName
     LIKEDS(QualifiedObjectName_Template) CONST;
   ObjectType CHAR(10) CONST;
   RemoteSystem CHAR(16) CONST;
@@ -102,13 +102,24 @@ DCL-C FALSE *OFF;
 
 /INCLUDE QRPGLECPY,ERRNO_H
 
-DCL-DS GSK_Template TEMPLATE QUALIFIED INZ;
+DCL-DS QualifiedObjectName_Template TEMPLATE QUALIFIED;
+  ObjectName CHAR(10);
+  ObjectLibrary CHAR(10);
+END-DS;
+DCL-DS Socket_Template TEMPLATE QUALIFIED;
+  ConnectTo POINTER;
+  SocketHandler INT(10);
+  Address UNS(10);
+  AddressLength INT(10);
+END-DS;
+DCL-DS GSK_Template TEMPLATE QUALIFIED;
   Environment POINTER;
   SecureHandler POINTER;
 END-DS;
-DCL-DS QualifiedObjectName_Template TEMPLATE QUALIFIED INZ;
-  ObjectName CHAR(10);
-  ObjectLibrary CHAR(10);
+DCL-DS MessageHandling_Template TEMPLATE QUALIFIED;
+  Length INT(10);
+  Key CHAR(4);
+  Error CHAR(128);
 END-DS;
 
 
@@ -133,7 +144,7 @@ DCL-PROC Main;
  *INLR = TRUE;
 
  If ( %Parms() = 12 ) And ( pQualifiedObjectName <> '' );
-   ManageSendingStuff(pQualifiedObjectName :pObjectType :pRemoteSystem 
+   ManageSendingStuff(pQualifiedObjectName :pObjectType :pRemoteSystem
                       :pUserProfile :pPassword :pTargetRelease :pRestoreLibrary
                       :pPort :pUseTLS :pDataCompression :pSaveFile :pWorkPath);
  EndIf;
@@ -146,7 +157,7 @@ END-PROC;
 //**************************************************************************
 DCL-PROC ManageSendingStuff;
  DCL-PI *N;
-   pQualifiedObjectName 
+   pQualifiedObjectName
      LIKEDS(QualifiedObjectName_Template) CONST;
    pObjectType CHAR(10) CONST;
    pRemoteSystem CHAR(16) CONST;
@@ -171,20 +182,20 @@ DCL-PROC ManageSendingStuff;
  DCL-S KEY CHAR(40) INZ('yourkey');
  DCL-S Loop IND INZ(TRUE);
 
- DCL-S FD INT(10) INZ;
  DCL-S RC INT(10) INZ;
  DCL-S Data CHAR(1024) INZ;
  DCL-S Work CHAR(1024) INZ;
  DCL-S SaveCommand CHAR(1024) INZ;
- DCL-S File CHAR(32766) INZ;
- DCL-S FileLength INT(10) INZ;
- DCL-S Bytes UNS(20) INZ;
- DCL-S ConnectTo POINTER INZ;
- DCL-S LocalSocket INT(10) INZ;
- DCL-S Address UNS(10) INZ;
- DCL-S AddressLength INT(10) INZ;
  DCL-S ErrorNumber INT(10) INZ;
- 
+
+ DCL-DS SendingFile QUALIFIED INZ;
+   FileHandler INT(10);
+   Length INT(10);
+   Data CHAR(32766);
+   Bytes UNS(20);
+ END-DS;
+
+ DCL-DS ClientSocket LIKEDS(Socket_Template) INZ;
  DCL-DS GSK LIKEDS(GSK_Template) INZ;
  //-------------------------------------------------------------------------
 
@@ -206,14 +217,14 @@ DCL-PROC ManageSendingStuff;
  EndIf;
 
  // Search adress via hostname
- Address = INet_Addr(%TrimR(pRemoteSystem));
- If ( Address = INADDR_NONE );
+ ClientSocket.Address = INet_Addr(%TrimR(pRemoteSystem));
+ If ( ClientSocket.Address = INADDR_NONE );
    P_HostEnt = GetHostByName(%TrimR(pRemoteSystem));
    If ( P_HostEnt = *NULL );
      SendDie('Unable to find selected host.');
      Return;
    EndIf;
-   Address = H_Addr;
+   ClientSocket.Address = H_Addr;
  EndIf;
 
  If pUseTLS;
@@ -221,45 +232,46 @@ DCL-PROC ManageSendingStuff;
  EndIf;
 
  // Create socket
- LocalSocket = Socket(AF_INET :SOCK_STREAM :IPPROTO_IP);
- If ( LocalSocket < 0 );
-   CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+ ClientSocket.SocketHandler = Socket(AF_INET :SOCK_STREAM :IPPROTO_IP);
+ If ( ClientSocket.SocketHandler < 0 );
+   CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
    SendDie(%Str(StrError(ErrNo)));
  EndIf;
 
- AddressLength = %Size(SockAddr);
- ConnectTo     = %Alloc(AddressLength);
+ ClientSocket.AddressLength = %Size(SockAddr);
+ ClientSocket.ConnectTo = %Alloc(ClientSocket.AddressLength);
 
- P_SockAddr = ConnectTo;
+ P_SockAddr = ClientSocket.ConnectTo;
  Sin_Family = AF_INET;
- Sin_Addr   = Address;
+ Sin_Addr   = ClientSocket.Address;
  Sin_Port   = pPort;
  Sin_Zero   = *ALLx'00';
 
  // Connect to host
- If ( Connect(LocalSocket :ConnectTo :AddressLength) < 0 );
+ If ( Connect(ClientSocket.SocketHandler :ClientSocket.ConnectTo 
+              :ClientSocket.AddressLength) < 0 );
    ErrorNumber = ErrNo;
-   CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+   CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
    SendDie(%Str(StrError(ErrorNumber)));
  EndIf;
 
  If pUseTLS;
-   InitGSKEnvironment(pUseTLS :LocalSocket :GSK);
+   InitGSKEnvironment(pUseTLS :ClientSocket.SocketHandler :GSK);
  EndIf;
 
  // Send protocoll and session-name
  Data = '*ZZv1>' + %TrimR(PSDS.JobName);
- SendData(pUseTLS :LocalSocket :GSK :%Addr(Data) :%Len(%TrimR(Data)));
- RC = RecieveData(pUseTLS :LocalSocket :GSK :%Addr(Data) :%Size(Data));
+ SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
+ RC = RecieveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
  Select;
    When ( RC <= 0 );
-     CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+     CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Can''t connect to host.');
    When ( Data = '*UNKNOWNSESSION>' );
-     CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+     CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Unknown session recieved. Connection was canceled.');
    When ( Data = '*UNKNOWNPROTOCOLL>' );
-     CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+     CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Unknown protcoll recieved. Connection was canceled.');
    When ( Data = '*OK>' );
      SendStatus('Connection successfull.');
@@ -270,10 +282,10 @@ DCL-PROC ManageSendingStuff;
    SendStatus('Start login at host ...');
    Exec SQL SET :Work = ENCRYPT_TDES(:pPassword, :Key);
    Data = pUserProfile + %TrimR(Work);
-   SendData(pUseTLS :LocalSocket :GSK :%Addr(Data) :%Len(%TrimR(Data)));
-   RC = RecieveData(pUseTLS :LocalSocket :GSK :%Addr(Data) :%Size(Data));
+   SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
+   RC = RecieveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
    If ( RC <= 0 );
-     CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+     CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Login failed.');
    EndIf;
 
@@ -282,27 +294,27 @@ DCL-PROC ManageSendingStuff;
 
    Select;
      When ( Data = '*NOLOGINDATA>' );
-       CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+       CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
        SendDie('No login data recieved.');
      When ( Data = '*NOPWD>' );
-       CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+       CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
        SendDie('Wrong password > ' + %TrimR(Work));
      When ( Data = '*NOACCESS>' );
-       CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+       CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
        SendDie('Access denied > ' + %TrimR(Work));
      When ( Data = '*OK>' );
        SendStatus('Login ok.');
    EndSl;
  Else;
    Data = pUserProfile;
-   SendData(pUseTLS :LocalSocket :GSK :%Addr(Data) :%Len(%TrimR(Data)));
-   RC = RecieveData(pUseTLS :LocalSocket :GSK :%Addr(Data) :%Size(Data));
+   SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
+   RC = RecieveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
    If ( RC <= 0 );
-     CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+     CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Login failed.');
    EndIf;
    If ( Data <> '*OK>' );
-     CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+     CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Authentication *NONE not allowed.');
    EndIf;
  EndIf;
@@ -315,20 +327,20 @@ DCL-PROC ManageSendingStuff;
                           %TrimR(pSaveFile.ObjectName) + ')');
  If ( pObjectType = '*LIB' );
    SaveCommand = 'SAVLIB LIB(' + %TrimR(pQualifiedObjectName.ObjectName) +
-                 ') DEV(*SAVF) SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' + 
+                 ') DEV(*SAVF) SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                  %TrimR(pSaveFile.ObjectName) +') TGTRLS(' + %TrimR(pTargetRelease) +
                  ') SAVACT(*LIB) DTACPR(' + %TrimR(pDataCompression) + ')';
  Else;
    SaveCommand = 'SAVOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') LIB(' +
                  %TrimR(pQualifiedObjectName.ObjectLibrary) + ') '+
                  'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) ' +
-                 'SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' + %TrimR(pSaveFile.ObjectName) + 
+                 'SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' + %TrimR(pSaveFile.ObjectName) +
                  ') TGTRLS(' + %TrimR(pTargetRelease) + ') SAVACT(*LIB) ' +
                  'DTACPR(' + %TrimR(pDataCompression) + ')';
  EndIf;
- FD = System(SaveCommand);
- If ( FD < 0 );
-   CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+ RC = System(SaveCommand);
+ If ( RC < 0 );
+   CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
    System('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                          %TrimR(pSaveFile.ObjectName) + ')');
    SendDie('Error occured while saving data. See joblog.');
@@ -336,10 +348,10 @@ DCL-PROC ManageSendingStuff;
 
  SendStatus('Prepare savefile to send, this may take a few moments ...');
  Monitor;
-   EC#ZCLIENT('/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' + 
+   EC#ZCLIENT('/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
                              %TrimR(pSaveFile.ObjectName) + '.FILE' :pWorkPath);
    On-Error;
-     CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+     CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      IFS_Unlink(%triMR(pWorkPath));
      System('DLTF FILE(QTEMP/SND)');
      SendDie('Error occured while preparing savefile. See joblog.');
@@ -360,41 +372,43 @@ DCL-PROC ManageSendingStuff;
           'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) SAVF(QTEMP/RCV) ' +
           'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
  EndIf;
- SendData(pUseTLS :LocalSocket :GSK :%Addr(Data) :%Len(%TrimR(Data)));
+ SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
 
  // Send object
  SendStatus('Sending data to host ...');
- FD = IFS_Open(%TrimR(pWorkPath) :O_RDONLY + O_LARGEFILE);
- If ( FD < 0 );
+ SendingFile.FileHandler = IFS_Open(%TrimR(pWorkPath) :O_RDONLY + O_LARGEFILE);
+ If ( SendingFile.FileHandler < 0 );
    ErrorNumber = ErrNo;
-   CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+   CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
    IFS_Unlink(%TrimR(pWorkPath));
    SendDie('Error occured while reading file > ' + %Str(StrError(ErrorNumber)));
  EndIf;
 
  DoW ( Loop );
-   FileLength = IFS_Read(FD :%Addr(File) :%Size(File));
-   If ( FileLength < (%Size(File) - 5) );
-     IFS_Close(FD);
+   SendingFile.Length = IFS_Read(SendingFile.FileHandler :%Addr(SendingFile.Data) 
+                                 :%Size(SendingFile.Data));
+   If ( SendingFile.Length < (%Size(SendingFile.Data) - 5) );
+     IFS_Close(SendingFile.FileHandler);
      IFS_Unlink(%TrimR(pWorkPath));
-     File = %SubSt(File :1 :FileLength) + '*EOF>';
-     SendData(pUseTLS :LocalSocket :GSK :%Addr(File) :FileLength + 5);
+     SendingFile.Data = %SubSt(SendingFile.Data :1 :SendingFile.Length) + '*EOF>';
+     SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data) 
+              :SendingFile.Length + 5);
      Leave;
    EndIf;
-   Bytes += FileLength;
-   SendStatus('Sending data to host, ' + %Char(%DecH(Bytes/1024 :17 :2)) +
+   SendingFile.Bytes += SendingFile.Length;
+   SendStatus('Sending data to host, ' + %Char(%DecH(SendingFile.Bytes/1024 :17 :2)) +
              ' KBytes transfered ...');
-   SendData(pUseTLS :LocalSocket :GSK :%Addr(File) :FileLength);
-   Clear File;
+   SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data) :SendingFile.Length);
+   Clear SendingFile.Data;
  EndDo;
 
  // Waiting for success-message
  Clear Data;
  SendStatus('Please wait, object(s) will be restored on the host system ...');
- RC = RecieveData(pUseTLS :LocalSocket :GSK :%Addr(Data) :%Size(Data));
+ RC = RecieveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
  Select;
    When ( %Scan('*ERROR_RESTORE>' :Data) > 0 );
-     CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+     CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Operation canceled: ' + %SubSt(Data :%Scan('>' :Data) + 1 :60));
    When ( %Scan('*OK>' :Data) > 0 );
      SendStatus('Operation was successfull.');
@@ -402,7 +416,7 @@ DCL-PROC ManageSendingStuff;
                            %TrimR(pSaveFile.ObjectName) + ')');
  EndSl;
 
- CleanUp_Socket(pUseTLS :LocalSocket :GSK);
+ CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
 
  Return;
 
@@ -414,7 +428,7 @@ DCL-PROC GenerateGSKEnvironment;
  DCL-PI *N LIKEDS(GSK_Template) END-PI;
 
  DCL-S RC INT(10) INZ;
- 
+
  DCL-DS GSK LIKEDS(GSK_Template) INZ;
  //-------------------------------------------------------------------------
 
@@ -565,15 +579,13 @@ DCL-PROC SendDie;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-S MessageLength INT(10) INZ;
- DCL-S MessageKey CHAR(4) INZ;
- DCL-S MessageError CHAR(128) INZ;
+ DCL-DS Message LIKEDS(MessageHandling_Template) INZ;
  //-------------------------------------------------------------------------
 
- MessageLength = %Len(%TrimR(pMessage));
- If ( MessageLength >= 0 );
-   SndPgmMsg('CPF9897'  :'QCPFMSG   *LIBL' :pMessage: MessageLength
-             :'*ESCAPE' :'*PGMBDY' :1 :MessageKey :MessageError);
+ Message.Length = %Len(%TrimR(pMessage));
+ If ( Message.Length >= 0 );
+   SndPgmMsg('CPF9897'  :'QCPFMSG   *LIBL' :pMessage: Message.Length
+             :'*ESCAPE' :'*PGMBDY' :1 :Message.Key :Message.Error);
  EndIf;
 
 END-PROC;
@@ -584,15 +596,13 @@ DCL-PROC SendStatus;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-S MessageLength INT(10) INZ;
- DCL-S MessageKey CHAR(4) INZ;
- DCL-S MessageError CHAR(128) INZ;
+ DCL-DS Message LIKEDS(MessageHandling_Template) INZ;
  //-------------------------------------------------------------------------
 
- MessageLength = %Len(%TrimR(pMessage));
- If ( MessageLength >= 0 );
-   SndPgmMsg('CPF9897'  :'QCPFMSG   *LIBL' :pMessage :MessageLength
-             :'*STATUS' :'*EXT' :0 :MessageKey :MessageError);
+ Message.Length = %Len(%TrimR(pMessage));
+ If ( Message.Length >= 0 );
+   SndPgmMsg('CPF9897'  :'QCPFMSG   *LIBL' :pMessage :Message.Length
+             :'*STATUS' :'*EXT' :0 :Message.Key :Message.Error);
  EndIf;
 
 END-PROC;
