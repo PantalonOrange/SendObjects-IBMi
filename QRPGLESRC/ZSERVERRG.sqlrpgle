@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 25.07.2018 - 08.01.2019
+//  Created by BRC on 25.07.2018 - 09.01.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   Based on the socketapi from scott klement - (c) Scott Klement
@@ -122,7 +122,12 @@ DCL-DS Lingering_Template TEMPLATE QUALIFIED INZ;
   LingerHandler POINTER;
   Length INT(10);
 END-DS;
-DCL-DS ErrorDS_Template QUALIFIED TEMPLATE;
+DCL-DS MessageHandling_Template TEMPLATE QUALIFIED INZ;
+  Length INT(10);
+  Key CHAR(4);
+  Error CHAR(128);
+END-DS;
+DCL-DS ErrorDS_Template TEMPLATE QUALIFIED;
   NbrBytesPrv INT(10) INZ(%SIZE(ErrorDS_Template));
   NbrBytesAvl INT(10);
   MessageID CHAR(7);
@@ -267,7 +272,6 @@ DCL-PROC AcceptConnection;
 
  DCL-S Length INT(10) INZ;
  DCL-S ErrNumber INT(10) INZ;
- DCL-S ClientIP CHAR(17) INZ;
  //-------------------------------------------------------------------------
 
  DoU ( Length = %Size(SockAddr_In) );
@@ -336,15 +340,18 @@ DCL-PROC HandleClient;
 
  DCL-S Loop IND INZ(TRUE);
  DCL-S RestoreSuccess IND INZ(TRUE);
- DCL-S FileHandler INT(10) INZ;
  DCL-S RC INT(10) INZ;
- DCL-S FileLength INT(10) INZ;
+ DCL-S OriginalUser CHAR(10) INZ;
  DCL-S Data CHAR(1024) INZ;
  DCL-S Work CHAR(1024) INZ;
  DCL-S Restore CHAR(1024) INZ;
- DCL-S FileData CHAR(32766) INZ;
- DCL-S OriginalUser CHAR(10) INZ;
- DCL-S Bytes UNS(20) INZ;
+
+ DCL-DS RetrievingFile QUALIFIED INZ;
+   FileHandler INT(10);
+   Length INT(10);
+   Data CHAR(32766);
+   Bytes UNS(20);
+ END-DS;
 
  DCL-DS ErrorDS LIKEDS(ErrorDS_Template);
  //-------------------------------------------------------------------------
@@ -354,7 +361,7 @@ DCL-PROC HandleClient;
  If ( RC <= 0 ) Or ( Data = '' );
    Data = '*UNKNOWNPROTOCOLL>';
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Unknown protocoll from IP "' + %TrimR(pSocket.ClientIP) + '" passed');
+   SendJobLog('+> Unknown protocoll from address "' + %TrimR(pSocket.ClientIP) + '" passed');
    Return;
  EndIf;
 
@@ -362,12 +369,12 @@ DCL-PROC HandleClient;
    Work = %SubSt(Data :7 :10);
    Data = '*OK>';
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Session "' + %TrimR(Work) + '" from IP "' + %TrimR(pSocket.ClientIP) +
+   SendJobLog('+> Session "' + %TrimR(Work) + '" from address "' + %TrimR(pSocket.ClientIP) +
               '" connected.');
  Else;
    Data = '*UNKNOWNPROTOCOLL>';
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Unknown protocoll from IP "' + %TrimR(pSocket.ClientIP) + '" passed');
+   SendJobLog('+> Unknown protocoll from address "' + %TrimR(pSocket.ClientIP) + '" passed');
    Return;
  EndIf;
 
@@ -388,39 +395,43 @@ DCL-PROC HandleClient;
      Return;
    EndIf;
 
-   User = %SubSt(Data :1 :10);
+   SwitchUserProfile.NewUser = %SubSt(Data :1 :10);
    Work = %SubSt(Data :11 :1000);
-   Exec SQL SET :Password = DECRYPT_BIT(BINARY(:Work), :Key);
+   Exec SQL SET :SwitchUserProfile.Password = DECRYPT_BIT(BINARY(:Work), :Key);
    Clear Key;
    If ( SQLCode <> 0 );
      Data = '*NOPWD>' + %Char(SQLCode);
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     SendJobLog('+> Password decryption failed for user ' + %TrimR(User) + ': ' + %Char(SQLCode));
+     SendJobLog('+> Password decryption failed for user ' + %TrimR(SwitchUserProfile.NewUser) +
+                ': ' + %Char(SQLCode));
      Return;
    EndIf;
 
    OriginalUser = PSDS.UserName;
-   EC#QSYGETPH(User :Password :UserHandler :ErrorDS :UserLength :UserCCSID);
-   Clear Password;
+   EC#QSYGETPH(SwitchUserProfile.NewUser :SwitchUserProfile.Password :SwitchUserProfile.UserHandler
+               :ErrorDS :%Len(%TrimR(SwitchUserProfile.Password)) :0);
+   Clear SwitchUserProfile.Password;
    If ( ErrorDS.NbrBytesAvl > 0 );
      Data = '*NOACCESS>' + ErrorDS.MessageID;
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     SendJobLog('+> Login failed for user ' + %TrimR(User) + ': ' + ErrorDS.MessageID);
+     SendJobLog('+> Login failed for user ' + %TrimR(SwitchUserProfile.NewUser) +
+                ': ' + ErrorDS.MessageID);
      Return;
    EndIf;
 
-   EC#QWTSETP(UserHandler :ErrorDS);
+   EC#QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
    If ( ErrorDS.NbrBytesAvl > 0 );
      Data = '*NOACCESS>' + ErrorDS.MessageID;
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     SendJobLog('+> No access for userprofile ' + %TrimR(User) + ': ' + ErrorDS.MessageID);
+     SendJobLog('+> No access for userprofile ' + %TrimR(SwitchUserProfile.NewUser) +
+                ': ' + ErrorDS.MessageID);
      Return;
    EndIf;
 
    // Login completed
    Data = '*OK>';
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Login for user "' + %TrimR(User) + '" was successfull');
+   SendJobLog('+> Login for user "' + %TrimR(SwitchUserProfile.NewUser) + '" was successfull');
  Else;
    RC = RecieveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
    Data = '*OK>';
@@ -432,32 +443,33 @@ DCL-PROC HandleClient;
  RecieveData(pUseTLS :pSocket :pGSK :%Addr(Restore) :%Size(Restore));
 
  // Handle incomming data
- FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_LARGEFILE
-                        :S_IRWXU + S_IRWXG + S_IRWXO);
+ RetrievingFile.FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_LARGEFILE
+                              :S_IRWXU + S_IRWXG + S_IRWXO);
 
- Reset Bytes;
+ Reset RetrievingFile.Bytes;
 
- DoW ( Loop ) And ( FileHandler >= 0 );
-   FileLength = RecieveData(pUseTLS :pSocket :pGSK :%Addr(FileData) :%Size(FileData));
-   If ( FileLength <= 0 );
-     IFS_Close(FileHandler);
+ DoW ( Loop ) And ( RetrievingFile.FileHandler >= 0 );
+   RetrievingFile.Length = RecieveData(pUseTLS :pSocket :pGSK
+                                       :%Addr(RetrievingFile.Data) :%Size(RetrievingFile.Data));
+   If ( RetrievingFile.Length <= 0 );
+     IFS_Close(RetrievingFile.FileHandler);
      Leave;
    EndIf;
 
-   Bytes += FileLength;
+   RetrievingFile.Bytes += RetrievingFile.Length;
 
-   If ( %Scan('*EOF>' :FileData) > 0 );
-     FileData = %SubSt(FileData :1 :%Scan('*EOF>' :FileData) - 1);
-     IFS_Write(FileHandler :%Addr(FileData) :FileLength - 5);
-     IFS_Close(FileHandler);
+   If ( %Scan('*EOF>' :RetrievingFile.Data) > 0 );
+     RetrievingFile.Data = %SubSt(RetrievingFile.Data :1 :%Scan('*EOF>' :RetrievingFile.Data) - 1);
+     IFS_Write(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length - 5);
+     IFS_Close(RetrievingFile.FileHandler);
      Leave;
    Else;
-     IFS_Write(FileHandler :%Addr(FileData) :FileLength);
-     Clear FileData;
+     IFS_Write(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length);
+     Clear RetrievingFile.Data;
    EndIf;
  EndDo;
 
- SendJobLog('+> ' + %Char(%DecH(Bytes/1024 :17 :2)) + ' KBytes recieved');
+ SendJobLog('+> ' + %Char(%DecH(RetrievingFile.Bytes/1024 :17 :2)) + ' KBytes recieved');
 
  Data = '*OK>';
  Monitor;
@@ -486,8 +498,8 @@ DCL-PROC HandleClient;
 
  // Switch back to original userprofile when authentication is *USRPRF
  If ( pAuthentication = '*USRPRF' );
-   EC#QSYGETPH(OriginalUser :'*NOPWD' :UserHandler :ErrorDS);
-   EC#QWTSETP(UserHandler :ErrorDS);
+   EC#QSYGETPH(OriginalUser :'*NOPWD' :SwitchUserProfile.UserHandler :ErrorDS);
+   EC#QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
  EndIf;
 
  Return;
@@ -655,15 +667,13 @@ DCL-PROC SendDie;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-S MessageLength INT(10) INZ;
- DCL-S MessageKey CHAR(4) INZ;
- DCL-S MessageError CHAR(128) INZ;
+ DCL-DS Message LIKEDS(MessageHandling_Template) INZ;
  //-------------------------------------------------------------------------
 
- MessageLength = %Len(%TrimR(pMessage));
- If ( MessageLength >= 0 );
-   SndPgmMsg('CPF9897'  :'QCPFMSG   *LIBL' :pMessage: MessageLength
-             :'*ESCAPE' :'*PGMBDY' :1 :MessageKey :MessageError);
+ Message.Length = %Len(%TrimR(pMessage));
+ If ( Message.Length >= 0 );
+   SndPgmMsg('CPF9897'  :'QCPFMSG   *LIBL' :pMessage: Message.Length
+             :'*ESCAPE' :'*PGMBDY' :1 :Message.Key :Message.Error);
  EndIf;
 
 END-PROC;
@@ -674,15 +684,13 @@ DCL-PROC SendJobLog;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-S MessageLength INT(10) INZ;
- DCL-S MessageKey CHAR(4) INZ;
- DCL-S MessageError CHAR(128) INZ;
+ DCL-DS Message LIKEDS(MessageHandling_Template) INZ;
  //-------------------------------------------------------------------------
 
- MessageLength = %Len(%TrimR(pMessage));
- If ( MessageLength >= 0 );
-   SndPgmMsg('CPF9897' :'QCPFMSG   *LIBL' :pMessage: MessageLength
-             :'*DIAG'  :'*PGMBDY' :1 :MessageKey :MessageError);
+ Message.Length = %Len(%TrimR(pMessage));
+ If ( Message.Length >= 0 );
+   SndPgmMsg('CPF9897' :'QCPFMSG   *LIBL' :pMessage: Message.Length
+             :'*DIAG'  :'*PGMBDY' :1 :Message.Key :Message.Error);
  EndIf;
 
 END-PROC;
