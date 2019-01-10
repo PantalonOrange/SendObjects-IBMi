@@ -385,11 +385,11 @@
      d p_ip            S               *
      D ip              DS                  based(p_ip)
      D   ip_v_hl                      1A
-     D   ip_tos$                      1A
+     D   ip_tosS                      1A
      D   ip_len                       5I 0
      D   ip_id                        5U 0
      D   ip_off                       5I 0
-     D   ip_ttl$                      1A
+     D   ip_ttlS                      1A
      D   ip_p                         1A
      D   ip_sum                       5U 0
      D   ip_src                      10U 0

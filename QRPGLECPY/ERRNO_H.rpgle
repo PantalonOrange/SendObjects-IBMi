@@ -315,7 +315,7 @@
       *-------------------------------------------------------------------
       * prototype definitions
       *-------------------------------------------------------------------
-     D $__errno        PR              *   ExtProc('__errno')
+     D ferrno          PR              *   ExtProc('__errno')
 
      D strerror        PR              *   ExtProc('strerror')
      D    errnum                     10I 0 value
@@ -337,7 +337,7 @@
      D errno           PI            10I 0
      D p_errno         S               *
      D wwreturn        S             10I 0 based(p_errno)
-     C                   eval      p_errno = $__errno
+     C                   eval      p_errno = ferrno
      c                   return    wwreturn
      P                 E
       /endif

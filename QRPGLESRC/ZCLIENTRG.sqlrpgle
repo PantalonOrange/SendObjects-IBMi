@@ -26,7 +26,7 @@
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
-/INCLUDE QRPGLECPY,H_SPECS
+/INCLUDE './QRPGLECPY/H_SPECS.rpgle'
 CTL-OPT MAIN(Main);
 
 DCL-PR Main EXTPGM('ZCLIENTRG');
@@ -44,11 +44,11 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   WorkPath CHAR(128) CONST;
 END-PR;
 
-/INCLUDE QRPGLECPY,SOCKET_H
-/INCLUDE QRPGLECPY,GSKSSL_H
-/INCLUDE QRPGLECPY,QMHSNDPM
-/INCLUDE QRPGLECPY,SYSTEM
-/INCLUDE QRPGLECPY,PSDS
+/INCLUDE './QRPGLECPY/SOCKET_H.rpgle'
+/INCLUDE './QRPGLECPY/GSKSSL_H.rpgle'
+/INCLUDE './QRPGLECPY/QMHSNDPM.rpgle'
+/INCLUDE './QRPGLECPY/SYSTEM.rpgle'
+/INCLUDE './QRPGLECPY/PSDS.rpgle'
 
 DCL-PR ManageSendingStuff;
   QualifiedObjectName
@@ -100,7 +100,7 @@ END-PR;
 DCL-C TRUE  *ON;
 DCL-C FALSE *OFF;
 
-/INCLUDE QRPGLECPY,ERRNO_H
+/INCLUDE './QRPGLECPY/ERRNO_H.rpgle'
 
 DCL-DS QualifiedObjectName_Template TEMPLATE QUALIFIED;
   ObjectName CHAR(10);
@@ -172,12 +172,12 @@ DCL-PROC ManageSendingStuff;
    pWorkPath CHAR(128) CONST;
  END-PI;
 
- DCL-PR EC#ZCLIENT EXTPGM('ZCLIENTCL');
+ DCL-PR EC_ZCLIENT EXTPGM('ZCLIENTCL');
    Save CHAR(64) CONST;
    File CHAR(64) CONST;
  END-PR;
 
-/INCLUDE QRPGLECPY,IFS_H
+/INCLUDE './QRPGLECPY/IFS_H.rpgle'
 
  DCL-S KEY CHAR(40) INZ('yourkey');
  DCL-S Loop IND INZ(TRUE);
@@ -348,7 +348,7 @@ DCL-PROC ManageSendingStuff;
 
  SendStatus('Prepare savefile to send, this may take a few moments ...');
  Monitor;
-   EC#ZCLIENT('/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
+   EC_ZCLIENT('/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
                              %TrimR(pSaveFile.ObjectName) + '.FILE' :pWorkPath);
    On-Error;
      CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
@@ -608,4 +608,4 @@ DCL-PROC SendStatus;
 END-PROC;
 
 /DEFINE ERRNO_LOAD_PROCEDURE
-/INCLUDE QRPGLECPY,ERRNO_H
+/INCLUDE './QRPGLECPY/ERRNO_H.rpgle'

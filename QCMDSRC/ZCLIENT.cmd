@@ -1,7 +1,6 @@
              CMD        PROMPT('Send objects') TEXT('Send objects') +
                           ALLOW(*ALL) MODE(*ALL) ALWLMTUSR(*NO) +
-                          HLPID(*CMD) HLPPNLGRP($$YOURLIB/ZCLIENT) +
-                          PRDLIB($$YOURLIB)
+                          HLPID(*CMD) HLPPNLGRP(ZCLIENT)
 
              PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) PROMPT('Object')
 

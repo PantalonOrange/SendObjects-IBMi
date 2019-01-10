@@ -26,7 +26,7 @@
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
-/INCLUDE QRPGLECPY,H_SPECS
+/INCLUDE './QRPGLECPY/H_SPECS.rpgle'
 CTL-OPT MAIN(Main);
 
 
@@ -37,10 +37,10 @@ DCL-PR Main EXTPGM('ZSERVERRG');
   AppID CHAR(32) CONST;
 END-PR;
 
-/INCLUDE QRPGLECPY,SOCKET_H
-/INCLUDE QRPGLECPY,GSKSSL_H
-/INCLUDE QRPGLECPY,QMHSNDPM
-/INCLUDE QRPGLECPY,SYSTEM
+/INCLUDE './QRPGLECPY/SOCKET_H.rpgle'
+/INCLUDE './QRPGLECPY/GSKSSL_H.rpgle'
+/INCLUDE './QRPGLECPY/QMHSNDPM.rpgle'
+/INCLUDE './QRPGLECPY/SYSTEM.rpgle'
 
 DCL-PR DoShutDown IND;
   UseTLS IND CONST;
@@ -103,8 +103,8 @@ END-PR;
 DCL-C TRUE *ON;
 DCL-C FALSE *OFF;
 
-/INCLUDE QRPGLECPY,ERRNO_H
-/INCLUDE QRPGLECPY,PSDS
+/INCLUDE './QRPGLECPY/ERRNO_H.rpgle'
+/INCLUDE './QRPGLECPY/PSDS.rpgle'
 
 DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
 DCL-C P_FILE '/tmp/rcv.file';
@@ -327,14 +327,20 @@ DCL-PROC HandleClient;
    pGSK LIKEDS(GSK_Template);
  END-PI;
 
- DCL-PR EC#ZSERVER EXTPGM('ZSERVERCL');
+ DCL-PR EC_ZSERVER EXTPGM('ZSERVERCL');
    Success CHAR(1);
    Save CHAR(64) CONST;
    File CHAR(64) CONST;
  END-PR;
 
-/INCLUDE QRPGLECPY,IFS_H
-/INCLUDE QRPGLECPY,SETUSR_H
+/INCLUDE './QRPGLECPY/IFS_H.rpgle'
+/INCLUDE './QRPGLECPY/SETUSR_H.rpgle'
+
+ DCL-DS SwitchUserProfile QUALIFIED INZ;
+   NewUser CHAR(10);
+   Password CHAR(32);
+   UserHandler CHAR(12);
+ END-DS;
 
  DCL-S KEY CHAR(40) INZ('youkey');
 
@@ -408,7 +414,7 @@ DCL-PROC HandleClient;
    EndIf;
 
    OriginalUser = PSDS.UserName;
-   EC#QSYGETPH(SwitchUserProfile.NewUser :SwitchUserProfile.Password :SwitchUserProfile.UserHandler
+   EC_QSYGETPH(SwitchUserProfile.NewUser :SwitchUserProfile.Password :SwitchUserProfile.UserHandler
                :ErrorDS :%Len(%TrimR(SwitchUserProfile.Password)) :0);
    Clear SwitchUserProfile.Password;
    If ( ErrorDS.NbrBytesAvl > 0 );
@@ -419,7 +425,7 @@ DCL-PROC HandleClient;
      Return;
    EndIf;
 
-   EC#QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
+   EC_QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
    If ( ErrorDS.NbrBytesAvl > 0 );
      Data = '*NOACCESS>' + ErrorDS.MessageID;
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
@@ -473,7 +479,7 @@ DCL-PROC HandleClient;
 
  Data = '*OK>';
  Monitor;
-   EC#ZSERVER(RestoreSuccess :P_SAVE :P_FILE);
+   EC_ZSERVER(RestoreSuccess :P_SAVE :P_FILE);
    On-Error;
      RestoreSuccess = FALSE;
  EndMon;
@@ -498,8 +504,8 @@ DCL-PROC HandleClient;
 
  // Switch back to original userprofile when authentication is *USRPRF
  If ( pAuthentication = '*USRPRF' );
-   EC#QSYGETPH(OriginalUser :'*NOPWD' :SwitchUserProfile.UserHandler :ErrorDS);
-   EC#QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
+   EC_QSYGETPH(OriginalUser :'*NOPWD' :SwitchUserProfile.UserHandler :ErrorDS);
+   EC_QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
  EndIf;
 
  Return;
@@ -697,4 +703,4 @@ END-PROC;
 
 //#########################################################################
 /DEFINE ERRNO_LOAD_PROCEDURE
-/INCLUDE QRPGLECPY,ERRNO_H
+/INCLUDE './QRPGLECPY/ERRNO_H.rpgle'
