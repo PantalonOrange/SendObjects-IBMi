@@ -30,75 +30,10 @@
 CTL-OPT MAIN(Main);
 
 
-DCL-PR Main EXTPGM('ZSERVERRG');
-  Port UNS(5) CONST;
-  Authentication CHAR(7) CONST;
-  UseTLS IND CONST;
-  AppID CHAR(32) CONST;
-END-PR;
-
 /INCLUDE './QRPGLECPY/SOCKET_H.rpgle'
 /INCLUDE './QRPGLECPY/GSKSSL_H.rpgle'
 /INCLUDE './QRPGLECPY/QMHSNDPM.rpgle'
 /INCLUDE './QRPGLECPY/SYSTEM.rpgle'
-
-DCL-PR DoShutDown IND;
-  UseTLS IND CONST;
-  Socket LIKEDS(Socket_Template) CONST;
-  GSK LIKEDS(GSK_Template);
-END-PR;
-DCL-PR MakeListener;
-  Port UNS(5) CONST;
-  UseTLS IND;
-  AppID CHAR(32) CONST;
-  ConnectFrom POINTER;
-  Socket LIKEDS(Socket_Template);
-  GSK LIKEDS(GSK_Template);
-  Lingering LIKEDS(Lingering_Template);
-END-PR;
-DCL-PR AcceptConnection;
-  UseTLS IND CONST;
-  ConnectFrom POINTER CONST;
-  Socket LIKEDS(Socket_Template);
-  GSK LIKEDS(GSK_Template);
-  Lingering LIKEDS(Lingering_Template);
-END-PR;
-DCL-PR HandleClient;
-  UseTLS IND CONST;
-  Authentication CHAR(7) CONST;
-  Socket LIKEDS(Socket_Template) CONST;
-  GSK LIKEDS(GSK_Template);
-END-PR;
-DCL-PR GenerateGSKEnvironment IND;
-  GSK LIKEDS(GSK_Template);
-  AppID CHAR(32) CONST;
-END-PR;
-DCL-PR SendData INT(10);
-  UseTLS IND CONST;
-  Socket LIKEDS(Socket_Template) CONST;
-  GSK LIKEDS(GSK_Template) CONST;
-  Data POINTER VALUE;
-  Length INT(10) CONST;
-END-PR;
-DCL-PR RecieveData INT(10);
-  UseTLS IND CONST;
-  Socket LIKEDS(Socket_Template) CONST;
-  GSK LIKEDS(GSK_Template) CONST;
-  Data POINTER VALUE;
-  Length INT(10) VALUE;
-END-PR;
-DCL-PR CleanUp_Socket;
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSKHandler POINTER;
-END-PR;
-DCL-PR CleanTemp END-PR;
-DCL-PR SendDie;
-  Message CHAR(256) CONST;
-END-PR;
-DCL-PR SendJobLog;
-  Message CHAR(256) CONST;
-END-PR;
 
 DCL-C TRUE *ON;
 DCL-C FALSE *OFF;

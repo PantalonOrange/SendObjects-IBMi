@@ -27,75 +27,14 @@
 
 
 /INCLUDE './QRPGLECPY/H_SPECS.rpgle'
-CTL-OPT MAIN(Main);
 
-DCL-PR Main EXTPGM('ZCLIENTRG');
-  QualifiedObjectName CHAR(20) CONST;
-  ObjectType CHAR(10) CONST;
-  RemoteSystem CHAR(16) CONST;
-  UserProfile CHAR(10) CONST;
-  Password CHAR(32) CONST;
-  TargetRelease CHAR(8) CONST;
-  RestoreLibrary CHAR(10) CONST;
-  Port UNS(5) CONST;
-  UseTLS IND CONST;
-  DataCompression CHAR(7) CONST;
-  SaveFile LIKEDS(QualifiedObjectName_Template) CONST;
-  WorkPath CHAR(128) CONST;
-END-PR;
+CTL-OPT MAIN(Main);
 
 /INCLUDE './QRPGLECPY/SOCKET_H.rpgle'
 /INCLUDE './QRPGLECPY/GSKSSL_H.rpgle'
 /INCLUDE './QRPGLECPY/QMHSNDPM.rpgle'
 /INCLUDE './QRPGLECPY/SYSTEM.rpgle'
 /INCLUDE './QRPGLECPY/PSDS.rpgle'
-
-DCL-PR ManageSendingStuff;
-  QualifiedObjectName
-    LIKEDS(QualifiedObjectName_Template) CONST;
-  ObjectType CHAR(10) CONST;
-  RemoteSystem CHAR(16) CONST;
-  UserProfile CHAR(10) CONST;
-  Password CHAR(32) CONST;
-  TargetRelease CHAR(8) CONST;
-  RestoreLibrary CHAR(10) CONST;
-  Port UNS(5) CONST;
-  UseTLS IND CONST;
-  DataCompression CHAR(7) CONST;
-  SaveFile LIKEDS(QualifiedObjectName_Template) CONST;
-  WorkPath CHAR(128) CONST;
-END-PR;
-DCL-PR GenerateGSKEnvironment LIKEDS(GSK_Template) END-PR;
-DCL-PR InitGSKEnvironment;
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSK LIKEDS(GSK_Template);
-END-PR;
-DCL-PR SendData INT(10);
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSK LIKEDS(GSK_Template) CONST;
-  Data POINTER VALUE;
-  Length INT(10) CONST;
-END-PR;
-DCL-PR RecieveData INT(10);
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSK LIKEDS(GSK_Template) CONST;
-  Data POINTER VALUE;
-  Length INT(10) VALUE;
-END-PR;
-DCL-PR CleanUp_Socket;
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSK LIKEDS(GSK_Template);
-END-PR;
-DCL-PR SendDie;
-  Message CHAR(256) CONST;
-END-PR;
-DCL-PR SendStatus;
-  Message CHAR(256) CONST;
-END-PR;
 
 DCL-C TRUE  *ON;
 DCL-C FALSE *OFF;
