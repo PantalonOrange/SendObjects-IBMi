@@ -19,9 +19,9 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-/if not defined (#PSDS)
+/if not defined (PSDS)
 
-/define #PSDS
+/define PSDS
 
 DCL-DS PSDS PSDS QUALIFIED;
   ProcedureName *PROC;

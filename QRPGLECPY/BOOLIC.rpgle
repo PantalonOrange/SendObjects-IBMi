@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018, 2019 Christian Brunner
+//- Copyright (c) 2019 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -19,27 +19,5 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-/if not defined (USRPRF_CONTROL)
-
-/define USRPRF_CONTROL
-
-DCL-PR QSYGETPH EXTPGM('QSYGETPH');
-  User     CHAR(10) CONST;
-  Password CHAR(32) CONST;
-  pHandler CHAR(12);
-  Error    CHAR(32766) OPTIONS(*VARSIZE :*NOPASS);
-  Length   INT(10) CONST OPTIONS(*NOPASS);
-  pCCSID   INT(10) CONST OPTIONS(*NOPASS);
-END-PR;
-DCL-PR QWTSETP EXTPGM('QWTSETP');
-  pHandler CHAR(12);
-  Error CHAR(32766) OPTIONS(*VARSIZE);
-END-PR;
-
-DCL-DS SwitchUserProfile QUALIFIED INZ;
-  NewUser CHAR(10);
-  Password CHAR(32);
-  UserHandler CHAR(12);
-END-DS;
-
-/endif
+DCL-C TRUE  *ON;
+DCL-C FALSE *OFF;

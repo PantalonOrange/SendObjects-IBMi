@@ -1,7 +1,7 @@
              CMD        PROMPT('Server - Reciever') TEXT('Recieve +
                           objects') HLPID(*CMD) +
-                          HLPPNLGRP($$YOURLIB/ZSERVER) +
-                          PRDLIB($$YOURLIB)
+                          HLPPNLGRP(ZSERVER) +
+                          PRDLIB(changelibraryname)
 
              PARM       KWD(PORT) TYPE(*DEC) LEN(5) DFT(19335) +
                           RANGE(1 65535) PROMPT('Port')

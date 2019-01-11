@@ -19,10 +19,10 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 30.08.2018 - 09.01.2019
+//  Created by BRC on 30.08.2018 - 11.01.2019
 
 // Socketclient to send objects over tls to another IBMi
-//   Based on the socketapi from scott klement - (c) Scott Klement
+//   I use the socket_h and gskssl_h header from scott klement - (c) Scott Klement
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
@@ -48,59 +48,10 @@ END-PR;
 /INCLUDE QRPGLECPY,GSKSSL_H
 /INCLUDE QRPGLECPY,QMHSNDPM
 /INCLUDE QRPGLECPY,SYSTEM
-/INCLUDE QRPGLECPY,PSDS
-
-DCL-PR ManageSendingStuff;
-  QualifiedObjectName
-    LIKEDS(QualifiedObjectName_Template) CONST;
-  ObjectType CHAR(10) CONST;
-  RemoteSystem CHAR(16) CONST;
-  UserProfile CHAR(10) CONST;
-  Password CHAR(32) CONST;
-  TargetRelease CHAR(8) CONST;
-  RestoreLibrary CHAR(10) CONST;
-  Port UNS(5) CONST;
-  UseTLS IND CONST;
-  DataCompression CHAR(7) CONST;
-  SaveFile LIKEDS(QualifiedObjectName_Template) CONST;
-  WorkPath CHAR(128) CONST;
-END-PR;
-DCL-PR GenerateGSKEnvironment LIKEDS(GSK_Template) END-PR;
-DCL-PR InitGSKEnvironment;
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSK LIKEDS(GSK_Template);
-END-PR;
-DCL-PR SendData INT(10);
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSK LIKEDS(GSK_Template) CONST;
-  Data POINTER VALUE;
-  Length INT(10) CONST;
-END-PR;
-DCL-PR RecieveData INT(10);
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSK LIKEDS(GSK_Template) CONST;
-  Data POINTER VALUE;
-  Length INT(10) VALUE;
-END-PR;
-DCL-PR CleanUp_Socket;
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSK LIKEDS(GSK_Template);
-END-PR;
-DCL-PR SendDie;
-  Message CHAR(256) CONST;
-END-PR;
-DCL-PR SendStatus;
-  Message CHAR(256) CONST;
-END-PR;
-
-DCL-C TRUE  *ON;
-DCL-C FALSE *OFF;
-
 /INCLUDE QRPGLECPY,ERRNO_H
+
+/INCLUDE QRPGLECPY,PSDS
+/INCLUDE QRPGLECPY,BOOLIC
 
 DCL-DS QualifiedObjectName_Template TEMPLATE QUALIFIED;
   ObjectName CHAR(10);
@@ -235,7 +186,7 @@ DCL-PROC ManageSendingStuff;
  ClientSocket.SocketHandler = Socket(AF_INET :SOCK_STREAM :IPPROTO_IP);
  If ( ClientSocket.SocketHandler < 0 );
    CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
-   SendDie(%Str(StrError(ErrNo)));
+   SendDie(%Str(strerror(ErrNo)));
  EndIf;
 
  ClientSocket.AddressLength = %Size(SockAddr);
@@ -248,11 +199,11 @@ DCL-PROC ManageSendingStuff;
  Sin_Zero   = *ALLx'00';
 
  // Connect to host
- If ( Connect(ClientSocket.SocketHandler :ClientSocket.ConnectTo 
+ If ( Connect(ClientSocket.SocketHandler :ClientSocket.ConnectTo
               :ClientSocket.AddressLength) < 0 );
    ErrorNumber = ErrNo;
    CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
-   SendDie(%Str(StrError(ErrorNumber)));
+   SendDie(%Str(strerror(ErrorNumber)));
  EndIf;
 
  If pUseTLS;
@@ -381,17 +332,17 @@ DCL-PROC ManageSendingStuff;
    ErrorNumber = ErrNo;
    CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
    IFS_Unlink(%TrimR(pWorkPath));
-   SendDie('Error occured while reading file > ' + %Str(StrError(ErrorNumber)));
+   SendDie('Error occured while reading file > ' + %Str(strerror(ErrorNumber)));
  EndIf;
 
  DoW ( Loop );
-   SendingFile.Length = IFS_Read(SendingFile.FileHandler :%Addr(SendingFile.Data) 
+   SendingFile.Length = IFS_Read(SendingFile.FileHandler :%Addr(SendingFile.Data)
                                  :%Size(SendingFile.Data));
    If ( SendingFile.Length < (%Size(SendingFile.Data) - 5) );
      IFS_Close(SendingFile.FileHandler);
      IFS_Unlink(%TrimR(pWorkPath));
      SendingFile.Data = %SubSt(SendingFile.Data :1 :SendingFile.Length) + '*EOF>';
-     SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data) 
+     SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data)
               :SendingFile.Length + 5);
      Leave;
    EndIf;
@@ -607,5 +558,5 @@ DCL-PROC SendStatus;
 
 END-PROC;
 
-/DEFINE ERRNO_LOAD_PROCEDURE
+/DEFINE LOAD_ERRNO_PROCEDURE
 /INCLUDE QRPGLECPY,ERRNO_H

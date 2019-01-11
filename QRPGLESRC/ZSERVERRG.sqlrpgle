@@ -19,10 +19,10 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 25.07.2018 - 08.01.2019
+//  Created by BRC on 25.07.2018 - 11.01.2019
 
 // Socketclient to send objects over tls to another IBMi
-//   Based on the socketapi from scott klement - (c) Scott Klement
+//   I use the socket_h and gskssl_h header from scott klement - (c) Scott Klement
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
@@ -41,70 +41,10 @@ END-PR;
 /INCLUDE QRPGLECPY,GSKSSL_H
 /INCLUDE QRPGLECPY,QMHSNDPM
 /INCLUDE QRPGLECPY,SYSTEM
-
-DCL-PR DoShutDown IND;
-  UseTLS IND CONST;
-  Socket LIKEDS(Socket_Template) CONST;
-  GSK LIKEDS(GSK_Template);
-END-PR;
-DCL-PR MakeListener;
-  Port UNS(5) CONST;
-  UseTLS IND;
-  AppID CHAR(32) CONST;
-  ConnectFrom POINTER;
-  Socket LIKEDS(Socket_Template);
-  GSK LIKEDS(GSK_Template);
-  Lingering LIKEDS(Lingering_Template);
-END-PR;
-DCL-PR AcceptConnection;
-  UseTLS IND CONST;
-  ConnectFrom POINTER CONST;
-  Socket LIKEDS(Socket_Template);
-  GSK LIKEDS(GSK_Template);
-  Lingering LIKEDS(Lingering_Template);
-END-PR;
-DCL-PR HandleClient;
-  UseTLS IND CONST;
-  Authentication CHAR(7) CONST;
-  Socket LIKEDS(Socket_Template) CONST;
-  GSK LIKEDS(GSK_Template);
-END-PR;
-DCL-PR GenerateGSKEnvironment IND;
-  GSK LIKEDS(GSK_Template);
-  AppID CHAR(32) CONST;
-END-PR;
-DCL-PR SendData INT(10);
-  UseTLS IND CONST;
-  Socket LIKEDS(Socket_Template) CONST;
-  GSK LIKEDS(GSK_Template) CONST;
-  Data POINTER VALUE;
-  Length INT(10) CONST;
-END-PR;
-DCL-PR RecieveData INT(10);
-  UseTLS IND CONST;
-  Socket LIKEDS(Socket_Template) CONST;
-  GSK LIKEDS(GSK_Template) CONST;
-  Data POINTER VALUE;
-  Length INT(10) VALUE;
-END-PR;
-DCL-PR CleanUp_Socket;
-  UseTLS IND CONST;
-  SocketHandler INT(10) CONST;
-  GSKHandler POINTER;
-END-PR;
-DCL-PR CleanTemp END-PR;
-DCL-PR SendDie;
-  Message CHAR(256) CONST;
-END-PR;
-DCL-PR SendJobLog;
-  Message CHAR(256) CONST;
-END-PR;
-
-DCL-C TRUE *ON;
-DCL-C FALSE *OFF;
-
 /INCLUDE QRPGLECPY,ERRNO_H
+
 /INCLUDE QRPGLECPY,PSDS
+/INCLUDE QRPGLECPY,BOOLIC
 
 DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
 DCL-C P_FILE '/tmp/rcv.file';
@@ -336,7 +276,7 @@ DCL-PROC HandleClient;
 /INCLUDE QRPGLECPY,IFS_H
 /INCLUDE QRPGLECPY,SETUSR_H
 
- DCL-S KEY CHAR(40) INZ('youkey');
+ DCL-S KEY CHAR(40) INZ('yourkey');
 
  DCL-S Loop IND INZ(TRUE);
  DCL-S RestoreSuccess IND INZ(TRUE);
@@ -408,7 +348,7 @@ DCL-PROC HandleClient;
    EndIf;
 
    OriginalUser = PSDS.UserName;
-   EC#QSYGETPH(SwitchUserProfile.NewUser :SwitchUserProfile.Password :SwitchUserProfile.UserHandler
+   QSYGETPH(SwitchUserProfile.NewUser :SwitchUserProfile.Password :SwitchUserProfile.UserHandler
                :ErrorDS :%Len(%TrimR(SwitchUserProfile.Password)) :0);
    Clear SwitchUserProfile.Password;
    If ( ErrorDS.NbrBytesAvl > 0 );
@@ -419,7 +359,7 @@ DCL-PROC HandleClient;
      Return;
    EndIf;
 
-   EC#QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
+   QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
    If ( ErrorDS.NbrBytesAvl > 0 );
      Data = '*NOACCESS>' + ErrorDS.MessageID;
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
@@ -498,8 +438,8 @@ DCL-PROC HandleClient;
 
  // Switch back to original userprofile when authentication is *USRPRF
  If ( pAuthentication = '*USRPRF' );
-   EC#QSYGETPH(OriginalUser :'*NOPWD' :SwitchUserProfile.UserHandler :ErrorDS);
-   EC#QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
+   QSYGETPH(OriginalUser :'*NOPWD' :SwitchUserProfile.UserHandler :ErrorDS);
+   QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
  EndIf;
 
  Return;
@@ -695,6 +635,5 @@ DCL-PROC SendJobLog;
 
 END-PROC;
 
-//#########################################################################
-/DEFINE ERRNO_LOAD_PROCEDURE
+/DEFINE LOAD_ERRNO_PROCEDURE
 /INCLUDE QRPGLECPY,ERRNO_H
