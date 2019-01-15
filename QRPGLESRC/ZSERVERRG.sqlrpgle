@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 25.07.2018 - 11.01.2019
+//  Created by BRC on 25.07.2018 - 15.01.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   I use the socket_h and gskssl_h header from scott klement - (c) Scott Klement
@@ -32,9 +32,9 @@ CTL-OPT MAIN(Main);
 
 DCL-PR Main EXTPGM('ZSERVERRG');
   Port UNS(5) CONST;
-  Authentication CHAR(7) CONST;
   UseTLS IND CONST;
   AppID CHAR(32) CONST;
+  Authentication CHAR(7) CONST;
 END-PR;
 
 /INCLUDE QRPGLECPY,SOCKET_H
@@ -80,9 +80,9 @@ END-DS;
 DCL-PROC Main;
  DCL-PI *N;
    pPort UNS(5) CONST;
-   pAuthentication CHAR(7) CONST;
    pUseTLS IND CONST;
    pAppID CHAR(32) CONST;
+   pAuthentication CHAR(7) CONST;
  END-PI;
 
  DCL-S UseTLS IND INZ(FALSE);
@@ -267,7 +267,7 @@ DCL-PROC HandleClient;
    pGSK LIKEDS(GSK_Template);
  END-PI;
 
- DCL-PR EC#ZSERVER EXTPGM('ZSERVERCL');
+ DCL-PR ManageSavefile EXTPGM('ZSERVERCL');
    Success CHAR(1);
    Save CHAR(64) CONST;
    File CHAR(64) CONST;
@@ -381,6 +381,15 @@ DCL-PROC HandleClient;
 
  // Handle incomming file- and restore informations
  RecieveData(pUseTLS :pSocket :pGSK :%Addr(RestoreCommand) :%Size(RestoreCommand));
+ If ( %SubSt(RestoreCommand :1 :3) <> 'RST' );
+   Data = '*NORESTORE>';
+   SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
+   SendJobLog('+> Invalid restorecommand recieved. End connection with client');
+   Return;
+ Else;
+   Data = '*OK>';
+   SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
+ EndIf;
 
  // Handle incomming data
  RetrievingFile.FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_LARGEFILE
@@ -413,7 +422,7 @@ DCL-PROC HandleClient;
 
  Data = '*OK>';
  Monitor;
-   EC#ZSERVER(RestoreSuccess :P_SAVE :P_FILE);
+   ManageSavefile(RestoreSuccess :P_SAVE :P_FILE);
    On-Error;
      RestoreSuccess = FALSE;
  EndMon;
@@ -635,5 +644,6 @@ DCL-PROC SendJobLog;
 
 END-PROC;
 
+//#########################################################################
 /DEFINE LOAD_ERRNO_PROCEDURE
 /INCLUDE QRPGLECPY,ERRNO_H

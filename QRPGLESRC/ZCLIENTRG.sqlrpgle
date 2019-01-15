@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 30.08.2018 - 11.01.2019
+//  Created by BRC on 30.08.2018 - 15.01.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   I use the socket_h and gskssl_h header from scott klement - (c) Scott Klement
@@ -95,9 +95,18 @@ DCL-PROC Main;
  *INLR = TRUE;
 
  If ( %Parms() = 12 ) And ( pQualifiedObjectName <> '' );
-   ManageSendingStuff(pQualifiedObjectName :pObjectType :pRemoteSystem
-                      :pUserProfile :pPassword :pTargetRelease :pRestoreLibrary
-                      :pPort :pUseTLS :pDataCompression :pSaveFile :pWorkPath);
+   ManageSendingStuff(pQualifiedObjectName
+                      :pObjectType
+                      :pRemoteSystem
+                      :pUserProfile
+                      :pPassword
+                      :pTargetRelease
+                      :pRestoreLibrary
+                      :pPort
+                      :pUseTLS
+                      :pDataCompression
+                      :pSaveFile
+                      :pWorkPath);
  EndIf;
 
  Return;
@@ -123,7 +132,7 @@ DCL-PROC ManageSendingStuff;
    pWorkPath CHAR(128) CONST;
  END-PI;
 
- DCL-PR EC#ZCLIENT EXTPGM('ZCLIENTCL');
+ DCL-PR ManageSavefile EXTPGM('ZCLIENTCL');
    Save CHAR(64) CONST;
    File CHAR(64) CONST;
  END-PR;
@@ -273,7 +282,7 @@ DCL-PROC ManageSendingStuff;
  // Save objects and prepare
  SendStatus('Saving object(s), this may take a few moments ...');
  System('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
-                         %TrimR(pSaveFile.ObjectName) + ')');
+                       %TrimR(pSaveFile.ObjectName) + ')');
  System('CRTSAVF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                           %TrimR(pSaveFile.ObjectName) + ')');
  If ( pObjectType = '*LIB' );
@@ -299,8 +308,8 @@ DCL-PROC ManageSendingStuff;
 
  SendStatus('Prepare savefile to send, this may take a few moments ...');
  Monitor;
-   EC#ZCLIENT('/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
-                             %TrimR(pSaveFile.ObjectName) + '.FILE' :pWorkPath);
+   ManageSavefile('/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
+                                 %TrimR(pSaveFile.ObjectName) + '.FILE' :pWorkPath);
    On-Error;
      CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      IFS_Unlink(%triMR(pWorkPath));
@@ -324,6 +333,11 @@ DCL-PROC ManageSendingStuff;
           'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
  EndIf;
  SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
+ RC = RecieveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
+ If ( RC < 0 ) Or ( Data <> '*OK>' );
+   CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
+   SendDie('Invalid restore instructions transfered.');
+ EndIf;
 
  // Send object
  SendStatus('Sending data to host ...');
@@ -348,7 +362,7 @@ DCL-PROC ManageSendingStuff;
    EndIf;
    SendingFile.Bytes += SendingFile.Length;
    SendStatus('Sending data to host, ' + %Char(%DecH(SendingFile.Bytes/1024 :17 :2)) +
-             ' KBytes transfered ...');
+              ' KBytes transfered ...');
    SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data) :SendingFile.Length);
    Clear SendingFile.Data;
  EndDo;
