@@ -30,7 +30,8 @@
                           *NONE)) PROMPT('User')
 
              PARM       KWD(PWD) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
-                          DSPINPUT(*NO) PROMPT('Password')
+                          DSPINPUT(*NO) PMTCTL(USEPWD) +
+                          PROMPT('Password')
 
              PARM       KWD(TGTRLS) TYPE(*CHAR) LEN(8) RSTD(*YES) +
                           DFT(*CURRENT) VALUES(*CURRENT *PRV) +
@@ -62,6 +63,6 @@
  OBJLIB:     QUAL       TYPE(*SNAME)
              QUAL       TYPE(*SNAME) DFT(*LIBL) SPCVAL((*LIBL +
                           *LIBL)) PROMPT('Library')
-
  SAVOBJ:     QUAL       TYPE(*SNAME) DFT(SND)
              QUAL       TYPE(*SNAME) DFT(QTEMP) PROMPT('Library')
+ USEPWD:     PMTCTL     CTL(USRPRF) COND((*NE '*NONE'))
