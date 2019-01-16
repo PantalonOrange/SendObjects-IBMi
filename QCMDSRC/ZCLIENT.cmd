@@ -26,11 +26,15 @@
                           CHOICE('Remotesystem') PROMPT('IP-Adress +
                           or Hostname')
 
-             PARM       KWD(USRPRF) TYPE(*NAME) LEN(10) SPCVAL((*NONE +
-                          *NONE)) PROMPT('User')
+             PARM       KWD(AUTH) TYPE(*CHAR) LEN(7) RSTD(*YES) +
+                          DFT(*USRPRF) VALUES(*USRPRF *NONE) +
+                          PROMPT('Authentication')
+
+             PARM       KWD(USRPRF) TYPE(*NAME) LEN(10) +
+                          PMTCTL(AUTHUSR) PROMPT('User')
 
              PARM       KWD(PWD) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
-                          DSPINPUT(*NO) PMTCTL(USEPWD) +
+                          DSPINPUT(*NO) PMTCTL(AUTHUSR) +
                           PROMPT('Password')
 
              PARM       KWD(TGTRLS) TYPE(*CHAR) LEN(8) RSTD(*YES) +
@@ -65,4 +69,4 @@
                           *LIBL)) PROMPT('Library')
  SAVOBJ:     QUAL       TYPE(*SNAME) DFT(SND)
              QUAL       TYPE(*SNAME) DFT(QTEMP) PROMPT('Library')
- USEPWD:     PMTCTL     CTL(USRPRF) COND((*NE '*NONE'))
+ AUTHUSR:    PMTCTL     CTL(AUTH) COND((*EQ '*USRPRF'))

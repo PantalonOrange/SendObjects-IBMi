@@ -22,17 +22,32 @@ Please insert the type for your selected object.
 Please insert the name or ip-address.
 :EHELP.
 
+:HELP NAME='ZCLIENT/AUTH'.Set authentication-level - Help
+:XH3.Set authentication-level
+:P.
+Please select one of the following choices:
+:P.
+:PARML.
+:PT.:PK DEF.*USRPRF:EPK.
+:PD.
+Use userprofile and password to authenticate on the remote system
+:P.
+:PT.:PV.*NONE:EPV.
+:PD.
+No authentication is used
+:EPARML.
+:EHELP.
+
 :HELP NAME='ZCLIENT/USRPRF'.Username - Help
 :XH3.Username to login
 :P.
-Please insert your username on the IBMi or *NONE if the Authentication - Parm
-is set to *NONE
+Please insert your username for the hostsystem
 :EHELP.
 
 :HELP NAME='ZCLIENT/PWD'.Password - Help
 :XH3.Password to login
 :P.
-Please insert your password on the IBMi
+Please insert your password for the hostsystem
 :EHELP.
 
 :HELP NAME='ZCLIENT/TGTRLS'.Target release - Help

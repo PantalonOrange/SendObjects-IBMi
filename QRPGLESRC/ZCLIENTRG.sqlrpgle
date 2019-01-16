@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 30.08.2018 - 15.01.2019
+//  Created by BRC on 30.08.2018 - 16.01.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   I use the socket_h and gskssl_h header from scott klement - (c) Scott Klement
@@ -33,6 +33,7 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   QualifiedObjectName CHAR(20) CONST;
   ObjectType CHAR(10) CONST;
   RemoteSystem CHAR(16) CONST;
+  Authentication CHAR(7) CONST;
   UserProfile CHAR(10) CONST;
   Password CHAR(32) CONST;
   TargetRelease CHAR(8) CONST;
@@ -80,6 +81,7 @@ DCL-PROC Main;
    pQualifiedObjectName CHAR(20) CONST;
    pObjectType CHAR(10) CONST;
    pRemoteSystem CHAR(16) CONST;
+   pAuthentication CHAR(7) CONST;
    pUserProfile CHAR(10) CONST;
    pPassword CHAR(32) CONST;
    pTargetRelease CHAR(8) CONST;
@@ -94,10 +96,11 @@ DCL-PROC Main;
 
  *INLR = TRUE;
 
- If ( %Parms() = 12 ) And ( pQualifiedObjectName <> '' );
+ If ( %Parms() = 13 ) And ( pQualifiedObjectName <> '' );
    ManageSendingStuff(pQualifiedObjectName
                       :pObjectType
                       :pRemoteSystem
+                      :pAuthentication
                       :pUserProfile
                       :pPassword
                       :pTargetRelease
@@ -121,6 +124,7 @@ DCL-PROC ManageSendingStuff;
      LIKEDS(QualifiedObjectName_Template) CONST;
    pObjectType CHAR(10) CONST;
    pRemoteSystem CHAR(16) CONST;
+   pAuthentication CHAR(7) CONST;
    pUserProfile CHAR(10) CONST;
    pPassword CHAR(32) CONST;
    pTargetRelease CHAR(8) CONST;
@@ -238,7 +242,7 @@ DCL-PROC ManageSendingStuff;
  EndSl;
 
  // Send username and password to host when selected
- If ( pUserProfile <> '*NONE' );
+ If ( pAuthentication = '*USRPRF' );
    SendStatus('Start login at host ...');
    Exec SQL SET :Work = ENCRYPT_TDES(:pPassword, :Key);
    Data = pUserProfile + %TrimR(Work);
@@ -265,15 +269,14 @@ DCL-PROC ManageSendingStuff;
      When ( Data = '*OK>' );
        SendStatus('Login ok.');
    EndSl;
- Else;
-   Data = pUserProfile;
+ ElseIf ( pAuthentication = '*NONE' );
+   Data = '*AUTH_NONE>';
    SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
    RC = RecieveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
    If ( RC <= 0 );
      CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Login failed.');
-   EndIf;
-   If ( Data <> '*OK>' );
+   ElseIf ( Data <> '*OK>' );
      CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
      SendDie('Authentication *NONE not allowed.');
    EndIf;

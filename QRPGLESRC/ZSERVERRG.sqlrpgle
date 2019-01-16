@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 25.07.2018 - 15.01.2019
+//  Created by BRC on 25.07.2018 - 16.01.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   I use the socket_h and gskssl_h header from scott klement - (c) Scott Klement
@@ -328,7 +328,7 @@ DCL-PROC HandleClient;
      Return;
    EndIf;
 
-   If ( Data = '*NONE' );
+   If ( Data = '*AUTH_NONE>' );
      Data = '*NONONEALLOWED>';
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
      SendJobLog('+> No anonymous login allowed');
@@ -376,7 +376,7 @@ DCL-PROC HandleClient;
    RC = RecieveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
    Data = '*OK>';
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-   SendJobLog('+> Unknown user connected');
+   SendJobLog('+> Anonymous connected');
  EndIf;
 
  // Handle incomming file- and restore informations
