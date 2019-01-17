@@ -1,34 +1,32 @@
 :PNLGRP.
 :HELP NAME='ZCLIENT'.Send objects - Help
-:P.
-With this command you can send objects between different IBMi Systems.
+:P.With this command you can send objects between different IBMi Systems.
+:P.Users :HP2.must:EHP2. have the SPCAUT *SAVSYS or access to the selected
+object(s).
+:P.The server program :HP2.ZSERVER:EHP2. must be executed on the remote system.
 :EHELP.
 
 :HELP NAME='ZCLIENT/OBJ'.Objectname - Help
 :XH3.Qualified objectname
-:P.
-Please insert the qualified name for your object or *STMF to select a
-single streamfile.
+:P.Please insert the :HP1.qualified name:EHP1. for your object or
+:HP1.*STMF:EHP1. to select one or more streamfile(s).
 :EHELP.
 
 :HELP NAME='ZCLIENT/OBJTYPE'.Objecttype - Help
 :XH3.Type of selected object
-:P.
-Please insert the type for your selected object.
+:P.Please insert the type for your selected object.
+:P.:HP1.*ALL:EHP1. is the default value.
 :EHELP.
 
 :HELP NAME='ZCLIENT/FROMSTMF'.Streamfile - Help
 :XH3.Streamfile
-:P.
-Please insert the path for your streamfile(s).
-:P.
-You can also use the wildcard '*'.
+:P.Please insert the path for your streamfile(s).
+:P.You can also use the wildcard '*' at the end.
 :EHELP.
 
 :HELP NAME='ZCLIENT/RMTSYS'.Remotesystem/Host - Help
 :XH3.Name or ip-address
-:P.
-Please insert the name or ip-address.
+:P.Please insert the name or ip-address from the remote host to connect.
 :EHELP.
 
 :HELP NAME='ZCLIENT/AUTH'.Set authentication-level - Help
@@ -64,8 +62,8 @@ Fill in the userprofilename for the host system
 
 :HELP NAME='ZCLIENT/PWD'.Password - Help
 :XH3.Password to login
-:P.
-Please insert your password for the hostsystem
+:P.Please insert your password for the hostsystem.
+
 :EHELP.
 
 :HELP NAME='ZCLIENT/TGTRLS'.Target release - Help
@@ -86,15 +84,13 @@ The previous OS-Release is used
 
 :HELP NAME='ZCLIENT/RSTLIB'.Restore in library  - Help
 :XH3.Restore in selected library
-:P.
-Please insert the targeting library to restore the object(s) or select
+:P.Please insert the target library to restore the object(s) or select
 *SAVLIB for the original library.
 :EHELP.
 
 :HELP NAME='ZCLIENT/PORT'.Port  - Help
 :XH3.Serverport
-:P.
-Serverport on the other side.
+:P.Serverport on the remote system.
 :EHELP.
 
 :HELP NAME='ZCLIENT/TLS'.Use TLS - Help
@@ -116,19 +112,19 @@ Send data without using TLS.
 :HELP NAME='ZCLIENT/DTACPR'.Datacompression - Help
 :XH3.Define the type of compression
 :P.Please define the type of compression for the savefile.
-:P.*HIGH is the default value
+:P.:HP1.*HIGH:EHP1. is the default value
 :EHELP.
 
 :HELP NAME='ZCLIENT/SAVF'.Savefile - Help
 :XH3.Define the place and name for the temporary savefile
 :P.Please define the library and objectname for the temporary savefile.
-:P.QTEMP/SND is the default value
+:P.:HP1.QTEMP/SND:EHP1. is the default value
 :EHELP.
 
-:HELP NAME='ZCLIENT/PATH'.Path - Help
+:HELP NAME='ZCLIENT/WORKFILE'.Path - Help
 :XH3.Define path for the temporary workfile
 :P.Please define the path for the temporary workfile.
-:P."/tmp/snd.file" is the default value
+:P.:HP1./tmp/snd.file:EHP1. is the default value
 :EHELP.
 
 :EPNLGRP.
