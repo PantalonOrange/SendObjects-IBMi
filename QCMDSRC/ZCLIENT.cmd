@@ -3,7 +3,8 @@
                           HLPID(*CMD) HLPPNLGRP(ZCLIENT) +
                           PRDLIB(changelibraryname)
 
-             PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) PROMPT('Object')
+             PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) +
+                          PROMPT('Objectname')
 
              PARM       KWD(OBJTYPE) TYPE(*CHAR) LEN(10) RSTD(*YES) +
                           DFT(*ALL) VALUES(*ALL *ALRTBL *BNDDIR +
@@ -20,7 +21,11 @@
                           *SCHIDX *SPADCT *SQLPKG *SQLUDT *SQLXSR +
                           *SRVPGM *SSND *SVRSTG *S36 *TBL *TIMZON +
                           *USRIDX *USRQ *USRSPC *VLDL *WSCST) +
-                          CHOICE('Type, *ALL') PROMPT('Objecttype')
+                          CHOICE('Type, *ALL') PMTCTL(USEOBJ) +
+                          PROMPT('Objecttype')
+
+             PARM       KWD(FROMSTMF) TYPE(*PNAME) LEN(128) +
+                          PMTCTL(USESTMF) PROMPT('Streamfile')
 
              PARM       KWD(RMTSYS) TYPE(*CHAR) LEN(16) +
                           CHOICE('Remotesystem') PROMPT('IP-Adress +
@@ -31,6 +36,7 @@
                           PROMPT('Authentication')
 
              PARM       KWD(USRPRF) TYPE(*NAME) LEN(10) +
+                          DFT(*CURRENT) SPCVAL((*CURRENT *CURRENT)) +
                           PMTCTL(AUTHUSR) PROMPT('User')
 
              PARM       KWD(PWD) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
@@ -60,13 +66,19 @@
              PARM       KWD(SAVF) TYPE(SAVOBJ) PMTCTL(*PMTRQS) +
                           PROMPT('Savefile')
 
-             PARM       KWD(PATH) TYPE(*PNAME) LEN(128) +
+             PARM       KWD(WORKFILE) TYPE(*PNAME) LEN(128) +
                           DFT('/tmp/snd.file') PMTCTL(*PMTRQS) +
-                          PROMPT('Workobject')
+                          PROMPT('Workfile')
 
- OBJLIB:     QUAL       TYPE(*SNAME)
+ OBJLIB:     QUAL       TYPE(*SNAME) SPCVAL((*STMF *STMF))
              QUAL       TYPE(*SNAME) DFT(*LIBL) SPCVAL((*LIBL +
                           *LIBL)) PROMPT('Library')
+
  SAVOBJ:     QUAL       TYPE(*SNAME) DFT(SND)
              QUAL       TYPE(*SNAME) DFT(QTEMP) PROMPT('Library')
+
  AUTHUSR:    PMTCTL     CTL(AUTH) COND((*EQ '*USRPRF'))
+
+ USEOBJ:     PMTCTL     CTL(OBJ) COND((*NE '*STMF'))
+
+ USESTMF:    PMTCTL     CTL(OBJ) COND((*EQ '*STMF'))

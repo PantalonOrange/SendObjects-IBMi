@@ -7,13 +7,22 @@ With this command you can send objects between different IBMi Systems.
 :HELP NAME='ZCLIENT/OBJ'.Objectname - Help
 :XH3.Qualified objectname
 :P.
-Please insert the qualified name for your object.
+Please insert the qualified name for your object or *STMF to select a
+single streamfile.
 :EHELP.
 
 :HELP NAME='ZCLIENT/OBJTYPE'.Objecttype - Help
 :XH3.Type of selected object
 :P.
 Please insert the type for your selected object.
+:EHELP.
+
+:HELP NAME='ZCLIENT/FROMSTMF'.Streamfile - Help
+:XH3.Streamfile
+:P.
+Please insert the path for your streamfile(s).
+:P.
+You can also use the wildcard '*'.
 :EHELP.
 
 :HELP NAME='ZCLIENT/RMTSYS'.Remotesystem/Host - Help
@@ -41,7 +50,16 @@ No authentication is used
 :HELP NAME='ZCLIENT/USRPRF'.Username - Help
 :XH3.Username to login
 :P.
-Please insert your username for the hostsystem
+Please select one of the following choices:
+:PARML.
+:PT.:PK DEF.*CURRENT:EPK.
+:PD.
+The client use the current userprofilename
+:P.
+:PT.:PV.Userprofilename:EPV.
+:PD.
+Fill in the userprofilename for the host system
+:EPARML.
 :EHELP.
 
 :HELP NAME='ZCLIENT/PWD'.Password - Help
