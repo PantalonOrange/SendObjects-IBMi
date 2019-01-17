@@ -182,7 +182,7 @@ DCL-PROC ManageSendingStuff;
  Select;
    When ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*ALL' );
      Clear RC;
-   When ( pQualifiedObjectName.ObjectName <> '*STMF' ) 
+   When ( pQualifiedObjectName.ObjectName <> '*STMF' )
     And ( %Scan('*' :pQualifiedObjectName.ObjectName) > 0 );
       Clear RC;
    When ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*LIB' );
@@ -298,6 +298,7 @@ DCL-PROC ManageSendingStuff;
  ElseIf ( pAuthentication = '*NONE' );
    Data = '*AUTH_NONE>';
    SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
+   Clear Data;
    RC = RecieveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
    If ( RC <= 0 );
      CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
@@ -330,12 +331,12 @@ DCL-PROC ManageSendingStuff;
  ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile <> '' );
    SaveCommand = 'SAV DEV(''/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
                   %TrimR(pSaveFile.ObjectName) + '.FILE'') OBJ(''' + %TrimR(pStreamFile) +
-                  ''') SUBTREE(*ALL) TGTRLS(' + %TrimR(pTargetRelease) + ') ' + 
+                  ''') SUBTREE(*ALL) TGTRLS(' + %TrimR(pTargetRelease) + ') ' +
                   'DTACPR(' +  %TrimR(pDataCompression) + ')';
  EndIf;
 
  RC = System(SaveCommand);
- If ( RC < 0 );
+ If ( RC <> 0 );
    CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);
    System('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                          %TrimR(pSaveFile.ObjectName) + ')');
@@ -373,6 +374,7 @@ DCL-PROC ManageSendingStuff;
           'SUBTREE(*ALL) CRTPRNDIR(*YES) ALWOBJDIF(*ALL)';
  EndIf;
  SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
+ Clear Data;
  RC = RecieveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
  If ( RC < 0 ) Or ( Data <> '*OK>' );
    CleanUp_Socket(pUseTLS :ClientSocket.SocketHandler :GSK);

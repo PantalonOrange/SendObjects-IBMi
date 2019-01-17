@@ -31,8 +31,7 @@ object(s).
 
 :HELP NAME='ZCLIENT/AUTH'.Set authentication-level - Help
 :XH3.Set authentication-level
-:P.
-Please select one of the following choices:
+:P.Please select one of the following choices:
 :P.
 :PARML.
 :PT.:PK DEF.*USRPRF:EPK.
@@ -47,8 +46,7 @@ No authentication is used
 
 :HELP NAME='ZCLIENT/USRPRF'.Username - Help
 :XH3.Username to login
-:P.
-Please select one of the following choices:
+:P.Please select one of the following choices:
 :PARML.
 :PT.:PK DEF.*CURRENT:EPK.
 :PD.
@@ -68,8 +66,7 @@ Fill in the userprofilename for the host system
 
 :HELP NAME='ZCLIENT/TGTRLS'.Target release - Help
 :XH3.Release on the IBMi
-:P.
-Please select one of the following choices:
+:P.Please select one of the following choices:
 :P.
 :PARML.
 :PT.:PK DEF.*CURRENT:EPK.
@@ -95,8 +92,7 @@ The previous OS-Release is used
 
 :HELP NAME='ZCLIENT/TLS'.Use TLS - Help
 :XH3.Use Transport layer security
-:P.
-Please select one of the following choices:
+:P.Please select one of the following choices:
 :P.
 :PARML.
 :PT.:PK DEF.*YES:EPK.
