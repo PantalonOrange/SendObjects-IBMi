@@ -68,4 +68,23 @@ DCL-C S_IRWXO 7;
 
 DCL-C F_OK 0;
 
+DCL-DS StatDS_Template TEMPLATE QUALIFIED;
+  Mode UNS(10);
+  FileID UNS(10);
+  NLinks UNS(5);
+  Pad CHAR(2);
+  UserID UNS(10);
+  GroupID UNS(10);
+  Size INT(10);
+  AccessTime INT(10);
+  ModificationTime INT(10);
+  ChangeTime INT(10);
+  Dev UNS(10);
+  BlockSize UNS(10);
+  AllocatedSize UNS(10);
+  ObjectType CHAR(10);
+  ObjectCCSID UNS(5);
+  Reserved CHAR(64);
+END-DS;
+
 /endif

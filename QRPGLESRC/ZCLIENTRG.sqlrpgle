@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 30.08.2018 - 17.01.2019
+//  Created by BRC on 30.08.2018 - 26.02.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   I use the socket_h and gskssl_h header from scott klement - (c) Scott Klement
@@ -165,6 +165,7 @@ DCL-PROC ManageSendingStuff;
 
  DCL-DS ClientSocket LIKEDS(Socket_Template) INZ;
  DCL-DS GSK LIKEDS(GSK_Template) INZ;
+ DCL-DS StatDS LIKEDS(StatDS_Template) INZ;
  //-------------------------------------------------------------------------
 
  // Quickcheck for some necessary parameters
@@ -358,6 +359,11 @@ DCL-PROC ManageSendingStuff;
  System('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                        %TrimR(pSaveFile.ObjectName) + ')');
 
+ // Get fileinformations
+ If ( IFS_Stat(%TrimR(pWorkPath) :%Addr(StatDS)) < 0 );
+   Clear StatDS;
+ EndIf;
+
  // Send restoreinformations
  SendStatus('Send restore instructions');
  If ( pQualifiedObjectName.ObjectName <> '*STMF') And ( pObjectType = '*LIB' );
@@ -404,6 +410,7 @@ DCL-PROC ManageSendingStuff;
    EndIf;
    SendingFile.Bytes += SendingFile.Length;
    SendStatus('Sending data to host, ' + %Char(%DecH(SendingFile.Bytes/1024 :17 :2)) +
+              ' KBytes of ' + %Char(%DecH(StatDS.Size/1024 :17 :2)) +
               ' KBytes transfered ...');
    SendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data) :SendingFile.Length);
    Clear SendingFile.Data;
