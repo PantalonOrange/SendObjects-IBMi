@@ -19,7 +19,7 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-//  Created by BRC on 25.07.2018 - 16.01.2019
+//  Created by BRC on 25.07.2018 - 22.03.2019
 
 // Socketclient to send objects over tls to another IBMi
 //   I use the socket_h and gskssl_h header from scott klement - (c) Scott Klement
@@ -342,8 +342,8 @@ DCL-PROC HandleClient;
    If ( SQLCode <> 0 );
      Data = '*NOPWD>' + %Char(SQLCode);
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     SendJobLog('+> Password decryption failed for user ' + %TrimR(SwitchUserProfile.NewUser) +
-                ': ' + %Char(SQLCode));
+     SendJobLog('+> Password decryption failed for user "' + %TrimR(SwitchUserProfile.NewUser) +
+                '": ' + %Char(SQLCode));
      Return;
    EndIf;
 
@@ -354,8 +354,8 @@ DCL-PROC HandleClient;
    If ( ErrorDS.NbrBytesAvl > 0 );
      Data = '*NOACCESS>' + ErrorDS.MessageID;
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     SendJobLog('+> Login failed for user ' + %TrimR(SwitchUserProfile.NewUser) +
-                ': ' + ErrorDS.MessageID);
+     SendJobLog('+> Login failed for user "' + %TrimR(SwitchUserProfile.NewUser) +
+                '": ' + ErrorDS.MessageID);
      Return;
    EndIf;
 
@@ -363,8 +363,8 @@ DCL-PROC HandleClient;
    If ( ErrorDS.NbrBytesAvl > 0 );
      Data = '*NOACCESS>' + ErrorDS.MessageID;
      SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     SendJobLog('+> No access for userprofile ' + %TrimR(SwitchUserProfile.NewUser) +
-                ': ' + ErrorDS.MessageID);
+     SendJobLog('+> No access for userprofile "' + %TrimR(SwitchUserProfile.NewUser) +
+                '": ' + ErrorDS.MessageID);
      Return;
    EndIf;
 
@@ -392,6 +392,7 @@ DCL-PROC HandleClient;
  EndIf;
 
  // Handle incomming data
+ SendJobLog('+> Waiting for incomming data');
  RetrievingFile.FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_LARGEFILE
                               :S_IRWXU + S_IRWXG + S_IRWXO);
 
