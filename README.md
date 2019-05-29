@@ -24,7 +24,7 @@ To create the objects copy the sources to your sourcefiles (qrpglesrc, qcmdsrc, 
 
 ## Update 29.05.2019
 ### ZSERVER
-Add API QMHRTVM to return OS-specific errors to client
+Add API ```QMHRTVM``` and SQL ```GET DIAGNOSTIC``` to return specific errorsmessages to client
 
 ## Update 17.01.2019
 ### ZCLIENT
