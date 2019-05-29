@@ -22,6 +22,10 @@ To create the objects copy the sources to your sourcefiles (qrpglesrc, qcmdsrc, 
 2. Add this jobdescription as a autostartjob to your subsystem:  
 ```ADDAJE SBSD(SUBSYSTEM) JOB(ZSERVER) JOBD(YOURLIB/ZSERVER)```
 
+## Update 29.05.2019
+### ZSERVER
+Add API QMHRTVM to return OS-specific errors to client
+
 ## Update 17.01.2019
 ### ZCLIENT
 Add streamfilesupport (beta)
