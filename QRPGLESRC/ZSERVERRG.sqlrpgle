@@ -41,6 +41,7 @@ END-PR;
 /INCLUDE QRPGLECPY,GSKSSL_H
 /INCLUDE QRPGLECPY,IFS_H
 /INCLUDE QRPGLECPY,QMHSNDPM
+/INCLUDE QRPGLECPY,QMHRTVM
 /INCLUDE QRPGLECPY,SYSTEM
 /INCLUDE QRPGLECPY,ERRNO_H
 
@@ -293,6 +294,7 @@ DCL-PROC handleClient;
    Bytes UNS(20);
  END-DS;
 
+ DCL-DS RTVM0100 LIKEDS(RTVM0100_Template);
  DCL-DS ErrorDS LIKEDS(ErrorDS_Template);
  //-------------------------------------------------------------------------
 
@@ -340,7 +342,8 @@ DCL-PROC handleClient;
    Exec SQL SET :SwitchUserProfile.Password = DECRYPT_BIT(BINARY(RTRIM(:Work)), :Key);
    Clear Key;
    If ( SQLCode <> 0 );
-     Data = '*NOPWD>' + %Char(SQLCode);
+     Exec SQL GET DIAGNOSTICS CONDITION 1 :Data = MESSAGE_TEXT;
+     Data = '*NOPWD>' + %Trim(Data);
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
      sendJobLog('+> Password decryption failed for user ' + %TrimR(SwitchUserProfile.NewUser) +
                 ': ' + %Char(SQLCode));
@@ -352,19 +355,35 @@ DCL-PROC handleClient;
                :ErrorDS :%Len(%TrimR(SwitchUserProfile.Password)) :0);
    Clear SwitchUserProfile.Password;
    If ( ErrorDS.NbrBytesAvl > 0 );
-     Data = '*NOACCESS>' + ErrorDS.MessageID;
+     Work = ErrorDS.MessageID;
+     retrieveMessageData(RTVM0100 :%Size(RTVM0100) :'RTVM0100' :ErrorDS.MessageID :CPFMSG
+                         :ErrorDS.MessageData :%Len(%TrimR(ErrorDS.MessageData))
+                         :'*YES' :'*NO' :ErrorDS);
+     If ( RTVM0100.MessageAndHelp <> '' );
+       Data = %SubSt(RTVM0100.MessageAndHelp :1 :RTVM0100.BytesMessageReturn);
+     Else;
+       Data = Work;
+     EndIf;
+     Data = '*NOACCESS>' + %Trim(Data);
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> Login failed for user ' + %TrimR(SwitchUserProfile.NewUser) +
-                ': ' + ErrorDS.MessageID);
+     sendJobLog('+> Login failed for user ' + %TrimR(SwitchUserProfile.NewUser) + ': ' + Work);
      Return;
    EndIf;
 
    QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
    If ( ErrorDS.NbrBytesAvl > 0 );
-     Data = '*NOACCESS>' + ErrorDS.MessageID;
+     Work = ErrorDS.MessageID;
+     retrieveMessageData(RTVM0100 :%Size(RTVM0100) :'RTVM0100' :ErrorDS.MessageID :CPFMSG
+                         :ErrorDS.MessageData :%Len(%TrimR(ErrorDS.MessageData))
+                         :'*YES' :'*NO' :ErrorDS);
+     If ( RTVM0100.MessageAndHelp <> '' );
+       Data = %SubSt(RTVM0100.MessageAndHelp :1 :RTVM0100.BytesMessageReturn);
+     Else;
+       Data = Work;
+     EndIf;
+     Data = '*NOACCESS>' + Data;
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> No access for userprofile ' + %TrimR(SwitchUserProfile.NewUser) +
-                ': ' + ErrorDS.MessageID);
+     sendJobLog('+> No access for userprofile ' + %TrimR(SwitchUserProfile.NewUser) + ': ' + Work);
      Return;
    EndIf;
 
