@@ -19,20 +19,20 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-/if not defined (API_QMHSNDPM)
+/IF DEFINED (API_QMHSNDPM)
+/EOF
+/ENDIF
 
-/define API_QMHSNDPM
+/DEFINE API_QMHSNDPM
 
-DCL-PR SndPgmMsg EXTPGM('QMHSNDPM');
+DCL-PR sendProgramMessage EXTPGM('QMHSNDPM');
   MessageID CHAR(7) CONST;
-  QualMsgFile CHAR(20) CONST;
-  MsgData CHAR(256) CONST;
-  MsgDtaLen INT(10) CONST;
-  MsgType CHAR(10) CONST;
-  CallStkEnt CHAR(10) CONST;
-  CallStkCnt INT(10) CONST;
+  QualifiedMessageFile CHAR(20) CONST;
+  MessageData CHAR(256) CONST;
+  MessageDataLength INT(10) CONST;
+  MessageType CHAR(10) CONST;
+  CallStackEntry CHAR(10) CONST;
+  CallStackCount INT(10) CONST;
   MessageKey CHAR(4);
   ErrorCode CHAR(128);
 END-PR;
-
-/endif
