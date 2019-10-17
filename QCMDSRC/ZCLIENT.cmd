@@ -1,7 +1,7 @@
              CMD        PROMPT('Send objects') TEXT('Send objects') +
                           ALLOW(*ALL) MODE(*ALL) ALWLMTUSR(*NO) +
-                          HLPID(*CMD) HLPPNLGRP(ZCLIENT) +
-                          PRDLIB(changelibraryname)
+                          HLPID(*CMD) HLPPNLGRP(WEDSOCKET/ZCLIENT) +
+                          PRDLIB(WEDSOCKET)
 
              PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) +
                           PROMPT('Objectname')
@@ -24,8 +24,9 @@
                           CHOICE('Type, *ALL') PMTCTL(USEOBJ) +
                           PROMPT('Objecttype')
 
-             PARM       KWD(FROMSTMF) TYPE(*PNAME) LEN(128) +
-                          PMTCTL(USESTMF) PROMPT('Streamfile')
+             PARM       KWD(FROMSTMF) TYPE(*PNAME) LEN(512) +
+                          VARY(*YES *INT2) PMTCTL(USESTMF) +
+                          INLPMTLEN(80) PROMPT('Streamfile')
 
              PARM       KWD(RMTSYS) TYPE(*CHAR) LEN(16) +
                           CHOICE('Remotesystem') PROMPT('IP-Adress +

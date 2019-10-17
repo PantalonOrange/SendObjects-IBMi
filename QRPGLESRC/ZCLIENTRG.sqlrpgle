@@ -27,6 +27,7 @@
 
 // Changes:
 //  17.10.2019  Disabled elder ssl and tls protocolls
+//               Add varying streamfilepathparm over command
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -35,7 +36,7 @@ CTL-OPT MAIN(Main);
 DCL-PR Main EXTPGM('ZCLIENTRG');
   QualifiedObjectName CHAR(20) CONST;
   ObjectType CHAR(10) CONST;
-  StreamFile CHAR(128) CONST;
+  StreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
   RemoteSystem CHAR(16) CONST;
   Authentication CHAR(7) CONST;
   UserProfile CHAR(10) CONST;
@@ -63,6 +64,10 @@ DCL-DS QualifiedObjectName_Template TEMPLATE QUALIFIED;
   ObjectName CHAR(10);
   ObjectLibrary CHAR(10);
 END-DS;
+DCL-DS CommandVaryingParmDS_Template TEMPLATE QUALIFIED;
+  Length UNS(5);
+  Data CHAR(510);
+END-DS;
 DCL-DS Socket_Template TEMPLATE QUALIFIED;
   ConnectTo POINTER;
   SocketHandler INT(10);
@@ -85,7 +90,7 @@ DCL-PROC Main;
  DCL-PI *N;
    pQualifiedObjectName CHAR(20) CONST;
    pObjectType CHAR(10) CONST;
-   pStreamFile CHAR(128) CONST;
+   pStreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
    pRemoteSystem CHAR(16) CONST;
    pAuthentication CHAR(7) CONST;
    pUserProfile CHAR(10) CONST;
@@ -129,7 +134,7 @@ DCL-PROC manageSendingStuff;
  DCL-PI *N;
    pQualifiedObjectName LIKEDS(QualifiedObjectName_Template) CONST;
    pObjectType CHAR(10) CONST;
-   pStreamFile CHAR(128) CONST;
+   pStreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
    pRemoteSystem CHAR(16) CONST;
    pAuthentication CHAR(7) CONST;
    pUserProfile CHAR(10) CONST;
@@ -176,7 +181,7 @@ DCL-PROC manageSendingStuff;
  If ( pAuthentication = '*USRPRF' ) And ( pPassword = '' );
    sendDie('No password selected.');
  EndIf;
- If ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile = '' );
+ If ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length = 0 );
    sendDie('No streamfile selected.');
  EndIf;
 
@@ -189,12 +194,12 @@ DCL-PROC manageSendingStuff;
       Clear RC;
    When ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*LIB' );
      RC = system('CHKOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') OBJTYPE(*LIB)');
-   When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile <> '' )
-    And ( %Scan('*' :pStreamfile) > 0 );
+   When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length > 0 )
+    And ( %Scan('*' :pStreamfile.Data) > 0 );
       Clear RC;
-   When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile <> '' )
-    And ( %Scan('*' :pStreamfile) = 0 );
-     RC = ifs_Access(%TrimR(pStreamFile) :F_OK);
+   When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length > 0 )
+    And ( %Scan('*' :pStreamfile.Data) = 0 );
+     RC = ifs_Access(%TrimR(pStreamFile.Data) :F_OK);
    Other;
      RC = system('CHKOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectLibrary) + '/' +
                   %TrimR(pQualifiedObjectName.ObjectName) + ') OBJTYPE(' +
@@ -330,9 +335,9 @@ DCL-PROC manageSendingStuff;
                  'SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' + %TrimR(pSaveFile.ObjectName) +
                  ') TGTRLS(' + %TrimR(pTargetRelease) + ') SAVACT(*LIB) ' +
                  'DTACPR(' + %TrimR(pDataCompression) + ')';
- ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile <> '' );
+ ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length > 0 );
    SaveCommand = 'SAV DEV(''/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
-                  %TrimR(pSaveFile.ObjectName) + '.FILE'') OBJ(''' + %TrimR(pStreamFile) +
+                  %TrimR(pSaveFile.ObjectName) + '.FILE'') OBJ(''' + %TrimR(pStreamFile.Data) +
                   ''') SUBTREE(*ALL) TGTRLS(' + %TrimR(pTargetRelease) + ') ' +
                   'DTACPR(' +  %TrimR(pDataCompression) + ')';
  EndIf;
@@ -377,7 +382,7 @@ DCL-PROC manageSendingStuff;
           'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) SAVF(QTEMP/RCV) ' +
           'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
  ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' );
-   Data = 'RST DEV(''/QSYS.LIB/QTEMP.LIB/RCV.FILE'') OBJ(''' + %TrimR(pStreamFile) + ''') ' +
+   Data = 'RST DEV(''/QSYS.LIB/QTEMP.LIB/RCV.FILE'') OBJ(''' + %TrimR(pStreamFile.Data) + ''') ' +
           'SUBTREE(*ALL) CRTPRNDIR(*YES) ALWOBJDIF(*ALL)';
  EndIf;
  sendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
