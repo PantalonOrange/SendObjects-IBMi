@@ -28,9 +28,10 @@
                           VARY(*YES *INT2) PMTCTL(USESTMF) +
                           INLPMTLEN(80) PROMPT('Streamfile')
 
-             PARM       KWD(RMTSYS) TYPE(*CHAR) LEN(16) +
-                          CHOICE('Remotesystem') PROMPT('IP-Adress +
-                          or Hostname')
+             PARM       KWD(RMTSYS) TYPE(*CHAR) LEN(512) VARY(*YES +
+                          *INT2) CASE(*MIXED) +
+                          CHOICE('Remotesystem') INLPMTLEN(32) +
+                          PROMPT('IP-Address or Hostname')
 
              PARM       KWD(AUTH) TYPE(*CHAR) LEN(7) RSTD(*YES) +
                           DFT(*USRPRF) VALUES(*USRPRF *NONE) +
@@ -40,8 +41,9 @@
                           DFT(*CURRENT) SPCVAL((*CURRENT *CURRENT)) +
                           PMTCTL(AUTHUSR) PROMPT('User')
 
-             PARM       KWD(PWD) TYPE(*CHAR) LEN(32) CASE(*MIXED) +
-                          DSPINPUT(*NO) PMTCTL(AUTHUSR) +
+             PARM       KWD(PWD) TYPE(*CHAR) LEN(512) VARY(*YES +
+                          *INT2) CASE(*MIXED) DSPINPUT(*NO) +
+                          PMTCTL(AUTHUSR) INLPMTLEN(32) +
                           PROMPT('Password')
 
              PARM       KWD(TGTRLS) TYPE(*CHAR) LEN(8) RSTD(*YES) +

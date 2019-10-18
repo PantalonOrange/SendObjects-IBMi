@@ -27,7 +27,7 @@
 
 // Changes:
 //  17.10.2019  Disabled elder ssl and tls protocolls
-//               Add varying streamfilepathparm over command
+//               Add varying parms over command
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -37,10 +37,10 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   QualifiedObjectName CHAR(20) CONST;
   ObjectType CHAR(10) CONST;
   StreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
-  RemoteSystem CHAR(16) CONST;
+  RemoteSystem LIKEDS(CommandVaryingParmDS_Template) CONST;
   Authentication CHAR(7) CONST;
   UserProfile CHAR(10) CONST;
-  Password CHAR(32) CONST;
+  Password LIKEDS(CommandVaryingParmDS_Template) CONST;
   TargetRelease CHAR(8) CONST;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
@@ -91,10 +91,10 @@ DCL-PROC Main;
    pQualifiedObjectName CHAR(20) CONST;
    pObjectType CHAR(10) CONST;
    pStreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
-   pRemoteSystem CHAR(16) CONST;
+   pRemoteSystem LIKEDS(CommandVaryingParmDS_Template) CONST;
    pAuthentication CHAR(7) CONST;
    pUserProfile CHAR(10) CONST;
-   pPassword CHAR(32) CONST;
+   pPassword LIKEDS(CommandVaryingParmDS_Template) CONST;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
@@ -135,10 +135,10 @@ DCL-PROC manageSendingStuff;
    pQualifiedObjectName LIKEDS(QualifiedObjectName_Template) CONST;
    pObjectType CHAR(10) CONST;
    pStreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
-   pRemoteSystem CHAR(16) CONST;
+   pRemoteSystem LIKEDS(CommandVaryingParmDS_Template) CONST;
    pAuthentication CHAR(7) CONST;
    pUserProfile CHAR(10) CONST;
-   pPassword CHAR(32) CONST;
+   pPassword LIKEDS(CommandVaryingParmDS_Template) CONST;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
@@ -177,12 +177,12 @@ DCL-PROC manageSendingStuff;
  // Quickcheck for some necessary parameters
  If ( pAuthentication = '*USRPRF' ) And ( pUserProfile = '' );
    sendDie('No userprofile selected.');
- EndIf;
- If ( pAuthentication = '*USRPRF' ) And ( pPassword = '' );
+ ElseIf ( pAuthentication = '*USRPRF' ) And ( pPassword.Length = 0 );
    sendDie('No password selected.');
- EndIf;
- If ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length = 0 );
+ ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length = 0 );
    sendDie('No streamfile selected.');
+ ElseIf ( pRemoteSystem.Length = 0 );
+   sendDie('No host selected.');
  EndIf;
 
  // Check for selected object
@@ -211,9 +211,9 @@ DCL-PROC manageSendingStuff;
  EndIf;
 
  // Search adress via hostname
- ClientSocket.Address = inet_Addr(%TrimR(pRemoteSystem));
+ ClientSocket.Address = inet_Addr(%TrimR(pRemoteSystem.Data));
  If ( ClientSocket.Address = INADDR_NONE );
-   P_HostEnt = getHostByName(%TrimR(pRemoteSystem));
+   P_HostEnt = getHostByName(%TrimR(pRemoteSystem.Data));
    If ( P_HostEnt = *NULL );
      sendDie('Unable to find selected host.');
    EndIf;
@@ -273,7 +273,7 @@ DCL-PROC manageSendingStuff;
  // Send username and password to host when selected
  If ( pAuthentication = '*USRPRF' );
    sendStatus('Start login at host ...');
-   Exec SQL SET :Work = ENCRYPT_TDES(:pPassword, :Key);
+   Exec SQL SET :Work = ENCRYPT_TDES(RTRIM(:pPassword.Data), :Key);
    If ( pUserProfile = '*CURRENT' );
      Data = PSDS.UserName + %TrimR(Work);
    Else;
