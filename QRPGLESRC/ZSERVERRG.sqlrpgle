@@ -26,6 +26,10 @@
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
+// Changes:
+//  23.10.2019  Cosmetic changes
+
+
 /INCLUDE QRPGLECPY,H_SPECS
 CTL-OPT MAIN(Main);
 
@@ -48,34 +52,11 @@ END-PR;
 /INCLUDE QRPGLECPY,PSDS
 /INCLUDE QRPGLECPY,BOOLIC
 
+/DEFINE IS_ZSERVER
+/INCLUDE QRPGLECPY,Z_H
+
 DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
 DCL-C P_FILE '/tmp/rcv.file';
-
-DCL-DS Socket_Template TEMPLATE QUALIFIED;
-  Listener INT(10);
-  Talk INT(10);
-  ClientIP CHAR(17);
-END-DS;
-DCL-DS GSK_Template TEMPLATE QUALIFIED;
-  Environment POINTER;
-  SecureHandler POINTER;
-END-DS;
-DCL-DS Lingering_Template TEMPLATE QUALIFIED;
-  LingerHandler POINTER;
-  Length INT(10);
-END-DS;
-DCL-DS MessageHandling_Template TEMPLATE QUALIFIED;
-  Length INT(10);
-  Key CHAR(4);
-  Error CHAR(128);
-END-DS;
-DCL-DS ErrorDS_Template TEMPLATE QUALIFIED;
-  NbrBytesPrv INT(10) INZ(%SIZE(ErrorDS_Template));
-  NbrBytesAvl INT(10);
-  MessageID CHAR(7);
-  Reserved1 CHAR(1);
-  MessageData CHAR(512);
-END-DS;
 
 
 //#########################################################################
@@ -90,9 +71,9 @@ DCL-PROC Main;
  DCL-S UseTLS IND INZ(FALSE);
  DCL-S ConnectFrom POINTER;
 
- DCL-DS Socket LIKEDS(Socket_Template) INZ;
- DCL-DS GSK LIKEDS(GSK_Template) INZ;
- DCL-DS Lingering LIKEDS(Lingering_Template) INZ;
+ DCL-DS Socket LIKEDS(Socket_T) INZ;
+ DCL-DS GSK LIKEDS(GSK_T) INZ;
+ DCL-DS Lingering LIKEDS(Lingering_T) INZ;
  //-------------------------------------------------------------------------
 
  *INLR = TRUE;
@@ -120,8 +101,8 @@ END-PROC;
 DCL-PROC doShutDown;
  DCL-PI *N IND;
    pUseTLS IND CONST;
-   pSocket LIKEDS(Socket_Template) CONST;
-   pGSK LIKEDS(GSK_Template);
+   pSocket LIKEDS(Socket_T) CONST;
+   pGSK LIKEDS(GSK_T);
  END-PI;
 
  DCL-S ShutDown IND INZ(FALSE);
@@ -143,9 +124,9 @@ DCL-PROC makeListener;
    pUseTLS IND;
    pAppID CHAR(32) CONST;
    pConnectFrom POINTER;
-   pSocket LIKEDS(Socket_Template);
-   pGSK LIKEDS(GSK_Template);
-   pLingering LIKEDS(Lingering_Template);
+   pSocket LIKEDS(Socket_T);
+   pGSK LIKEDS(GSK_T);
+   pLingering LIKEDS(Lingering_T);
  END-PI;
 
  DCL-S BindTo POINTER;
@@ -207,9 +188,9 @@ DCL-PROC acceptConnection;
  DCL-PI *N;
    pUseTLS IND CONST;
    pConnectFrom POINTER CONST;
-   pSocket LIKEDS(Socket_Template);
-   pGSK LIKEDS(GSK_Template);
-   pLingering LIKEDS(Lingering_Template);
+   pSocket LIKEDS(Socket_T);
+   pGSK LIKEDS(GSK_T);
+   pLingering LIKEDS(Lingering_T);
  END-PI;
 
  DCL-S Length INT(10) INZ;
@@ -265,8 +246,8 @@ DCL-PROC handleClient;
  DCL-PI *N;
    pUseTLS IND CONST;
    pAuthentication CHAR(7) CONST;
-   pSocket LIKEDS(Socket_Template) CONST;
-   pGSK LIKEDS(GSK_Template);
+   pSocket LIKEDS(Socket_T) CONST;
+   pGSK LIKEDS(GSK_T);
  END-PI;
 
  DCL-PR manageSavefile EXTPGM('ZSERVERCL');
@@ -294,8 +275,8 @@ DCL-PROC handleClient;
    Bytes UNS(20);
  END-DS;
 
- DCL-DS RTVM0100 LIKEDS(RTVM0100_Template);
- DCL-DS ErrorDS LIKEDS(ErrorDS_Template);
+ DCL-DS RTVM0100 LIKEDS(RTVM0100_T);
+ DCL-DS ErrorDS LIKEDS(Error_T);
  //-------------------------------------------------------------------------
 
  // Check protocoll and session
@@ -342,11 +323,11 @@ DCL-PROC handleClient;
    Exec SQL SET :SwitchUserProfile.Password = DECRYPT_BIT(BINARY(RTRIM(:Work)), :Key);
    Clear Key;
    If ( SQLCode <> 0 );
-     Exec SQL GET DIAGNOSTICS CONDITION 1 :Data = MESSAGE_TEXT;
-     Data = '*NOPWD>' + %Trim(Data);
-     sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> Password decryption failed for user ' + %TrimR(SwitchUserProfile.NewUser) +
-                ': ' + %Char(SQLCode));
+     Exec SQL GET DIAGNOSTICS CONDITION 1 :Work = MESSAGE_TEXT;
+     Data = '*NOPWD>' + %TrimR(Work);
+     sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%TrimR(Data)));
+     sendJobLog('+> Password decryption failed for user "' + %TrimR(SwitchUserProfile.NewUser) +
+                '": ' + %TrimR(Work));
      Return;
    EndIf;
 
@@ -364,9 +345,10 @@ DCL-PROC handleClient;
      Else;
        Data = Work;
      EndIf;
-     Data = '*NOACCESS>' + %Trim(Data);
+     Work = Data;
+     Data = '*NOACCESS>' + %TrimR(Data);
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> Login failed for user ' + %TrimR(SwitchUserProfile.NewUser) + ': ' + Work);
+     sendJobLog('+> Login failed for user "' + %TrimR(SwitchUserProfile.NewUser) + '": ' + Work);
      Return;
    EndIf;
 
@@ -381,9 +363,10 @@ DCL-PROC handleClient;
      Else;
        Data = Work;
      EndIf;
+     Work = Data;
      Data = '*NOACCESS>' + Data;
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> No access for userprofile ' + %TrimR(SwitchUserProfile.NewUser) + ': ' + Work);
+     sendJobLog('+> No access for user "' + %TrimR(SwitchUserProfile.NewUser) + '": ' + Work);
      Return;
    EndIf;
 
@@ -478,7 +461,7 @@ END-PROC;
 //**************************************************************************
 DCL-PROC generateGSKEnvironment;
  DCL-PI *N IND;
-   pGSK LIKEDS(GSK_Template);
+   pGSK LIKEDS(GSK_T);
    pAppID CHAR(32) CONST;
  END-PI;
 
@@ -542,8 +525,8 @@ END-PROC;
 DCL-PROC sendData;
  DCL-PI *N INT(10);
    pUseTLS IND CONST;
-   pSocket LIKEDS(Socket_Template) CONST;
-   pGSK LIKEDS(GSK_Template) CONST;
+   pSocket LIKEDS(Socket_T) CONST;
+   pGSK LIKEDS(GSK_T) CONST;
    pData POINTER VALUE;
    pLength INT(10) CONST;
  END-PI;
@@ -571,8 +554,8 @@ END-PROC;
 DCL-PROC recieveData;
  DCL-PI *N INT(10);
    pUseTLS IND CONST;
-   pSocket LIKEDS(Socket_Template) CONST;
-   pGSK LIKEDS(GSK_Template) CONST;
+   pSocket LIKEDS(Socket_T) CONST;
+   pGSK LIKEDS(GSK_T) CONST;
    pData POINTER VALUE;
    pLength INT(10) VALUE;
  END-PI;
@@ -631,12 +614,12 @@ DCL-PROC sendDie;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-DS Message LIKEDS(MessageHandling_Template) INZ;
+ DCL-DS Message LIKEDS(MessageHandling_T) INZ;
  //-------------------------------------------------------------------------
 
  Message.Length = %Len(%TrimR(pMessage));
  If ( Message.Length >= 0 );
-   sendProgramMessage('CPF9897'  :'QCPFMSG   *LIBL' :pMessage: Message.Length
+   sendProgramMessage('CPF9897'  :CPFMSG :pMessage: Message.Length
                       :'*ESCAPE' :'*PGMBDY' :1 :Message.Key :Message.Error);
  EndIf;
 
@@ -648,12 +631,12 @@ DCL-PROC sendJobLog;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-DS Message LIKEDS(MessageHandling_Template) INZ;
+ DCL-DS Message LIKEDS(MessageHandling_T) INZ;
  //-------------------------------------------------------------------------
 
  Message.Length = %Len(%TrimR(pMessage));
  If ( Message.Length >= 0 );
-   sendProgramMessage('CPF9897' :'QCPFMSG   *LIBL' :pMessage: Message.Length
+   sendProgramMessage('CPF9897' :CPFMSG :pMessage: Message.Length
                       :'*DIAG'  :'*PGMBDY' :1 :Message.Key :Message.Error);
  EndIf;
 

@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018, 2019 Christian Brunner
+//- Copyright (c) 2019 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -19,25 +19,51 @@
 //- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //- SOFTWARE.
 
-/IF DEFINED (API_QMHSNDPM)
+/IF DEFINED (Z_H)
 /EOF
 /ENDIF
 
-/DEFINE API_QMHSNDPM
+/DEFINE Z_H
 
-/IF NOT DEFINED (CPFMSG)
-DCL-C CPFMSG 'QCPFMSG   *LIBL';
-/DEFINE CPFMSG
+DCL-DS QualifiedObjectName_T TEMPLATE QUALIFIED;
+  ObjectName CHAR(10);
+  ObjectLibrary CHAR(10);
+END-DS;
+DCL-DS CommandVaryingParm_T TEMPLATE QUALIFIED;
+  Length UNS(5);
+  Data CHAR(510);
+END-DS;
+/IF DEFINED (IS_ZCLIENT)
+DCL-DS Socket_T TEMPLATE QUALIFIED;
+  ConnectTo POINTER;
+  SocketHandler INT(10);
+  Address UNS(10);
+  AddressLength INT(10);
+END-DS;
+/ELSEIF DEFINED (IS_ZSERVER)
+DCL-DS Socket_T TEMPLATE QUALIFIED;
+  Listener INT(10);
+  Talk INT(10);
+  ClientIP CHAR(17);
+END-DS;
 /ENDIF
-
-DCL-PR sendProgramMessage EXTPGM('QMHSNDPM');
-  MessageID CHAR(7) CONST;
-  QualifiedMessageFile CHAR(20) CONST;
-  MessageData CHAR(256) CONST;
-  MessageDataLength INT(10) CONST;
-  MessageType CHAR(10) CONST;
-  CallStackEntry CHAR(10) CONST;
-  CallStackCount INT(10) CONST;
-  MessageKey CHAR(4);
-  ErrorCode CHAR(128);
-END-PR;
+DCL-DS GSK_T TEMPLATE QUALIFIED;
+  Environment POINTER;
+  SecureHandler POINTER;
+END-DS;
+DCL-DS MessageHandling_T TEMPLATE QUALIFIED;
+  Length INT(10);
+  Key CHAR(4);
+  Error CHAR(128);
+END-DS;
+DCL-DS Lingering_T TEMPLATE QUALIFIED;
+  LingerHandler POINTER;
+  Length INT(10);
+END-DS;
+DCL-DS Error_T TEMPLATE QUALIFIED;
+  NbrBytesPrv INT(10) INZ(%SIZE(Error_T));
+  NbrBytesAvl INT(10);
+  MessageID CHAR(7);
+  Reserved1 CHAR(1);
+  MessageData CHAR(512);
+END-DS;

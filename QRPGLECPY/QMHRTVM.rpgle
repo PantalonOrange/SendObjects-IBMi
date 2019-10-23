@@ -25,10 +25,13 @@
 
 /DEFINE API_QMHRTVM
 
+/IF NOT DEFINED (CPFMSG)
 DCL-C CPFMSG 'QCPFMSG   *LIBL';
+/DEFINE CPFMSG
+/ENDIF
 
 DCL-PR retrieveMessageData EXTPGM('QMHRTVM');
-  MessageDataOut LIKEDS(RTVM0100_Template);
+  MessageDataOut LIKEDS(RTVM0100_T);
   MessageDataLengthOut INT(10) CONST;
   APIFormat CHAR(8) CONST;
   MessageID CHAR(7) CONST;

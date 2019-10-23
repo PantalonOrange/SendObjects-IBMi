@@ -25,30 +25,34 @@
 //   I use the socket_h header from scott klement - (c) Scott Klement
 //   https://www.scottklement.com/rpg/socktut/socktut.savf
 
+
 // Changes:
 //  17.10.2019  Disabled elder ssl and tls protocolls
-//               Add varying parms over command
+//               Add varying streamfilepathparm over command
+//  23.10.2019  Cosmetic changes
 
 
 /INCLUDE QRPGLECPY,H_SPECS
 CTL-OPT MAIN(Main);
 
+
 DCL-PR Main EXTPGM('ZCLIENTRG');
   QualifiedObjectName CHAR(20) CONST;
   ObjectType CHAR(10) CONST;
-  StreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
-  RemoteSystem LIKEDS(CommandVaryingParmDS_Template) CONST;
+  StreamFile LIKEDS(CommandVaryingParm_T) CONST;
+  RemoteSystem LIKEDS(CommandVaryingParm_T) CONST;
   Authentication CHAR(7) CONST;
   UserProfile CHAR(10) CONST;
-  Password LIKEDS(CommandVaryingParmDS_Template) CONST;
+  Password LIKEDS(CommandVaryingParm_T) CONST;
   TargetRelease CHAR(8) CONST;
   RestoreLibrary CHAR(10) CONST;
   Port UNS(5) CONST;
   UseTLS IND CONST;
   DataCompression CHAR(7) CONST;
-  SaveFile LIKEDS(QualifiedObjectName_Template) CONST;
+  SaveFile LIKEDS(QualifiedObjectName_T) CONST;
   WorkPath CHAR(128) CONST;
 END-PR;
+
 
 /INCLUDE QRPGLECPY,SOCKET_H
 /INCLUDE QRPGLECPY,GSKSSL_H
@@ -60,29 +64,8 @@ END-PR;
 /INCLUDE QRPGLECPY,PSDS
 /INCLUDE QRPGLECPY,BOOLIC
 
-DCL-DS QualifiedObjectName_Template TEMPLATE QUALIFIED;
-  ObjectName CHAR(10);
-  ObjectLibrary CHAR(10);
-END-DS;
-DCL-DS CommandVaryingParmDS_Template TEMPLATE QUALIFIED;
-  Length UNS(5);
-  Data CHAR(510);
-END-DS;
-DCL-DS Socket_Template TEMPLATE QUALIFIED;
-  ConnectTo POINTER;
-  SocketHandler INT(10);
-  Address UNS(10);
-  AddressLength INT(10);
-END-DS;
-DCL-DS GSK_Template TEMPLATE QUALIFIED;
-  Environment POINTER;
-  SecureHandler POINTER;
-END-DS;
-DCL-DS MessageHandling_Template TEMPLATE QUALIFIED;
-  Length INT(10);
-  Key CHAR(4);
-  Error CHAR(128);
-END-DS;
+/DEFINE IS_ZCLIENT
+/INCLUDE QRPGLECPY,Z_H
 
 
 //#########################################################################
@@ -90,17 +73,17 @@ DCL-PROC Main;
  DCL-PI *N;
    pQualifiedObjectName CHAR(20) CONST;
    pObjectType CHAR(10) CONST;
-   pStreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
-   pRemoteSystem LIKEDS(CommandVaryingParmDS_Template) CONST;
+   pStreamFile LIKEDS(CommandVaryingParm_T) CONST;
+   pRemoteSystem LIKEDS(CommandVaryingParm_T) CONST;
    pAuthentication CHAR(7) CONST;
    pUserProfile CHAR(10) CONST;
-   pPassword LIKEDS(CommandVaryingParmDS_Template) CONST;
+   pPassword LIKEDS(CommandVaryingParm_T) CONST;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
    pUseTLS IND CONST;
    pDataCompression CHAR(7) CONST;
-   pSaveFile LIKEDS(QualifiedObjectName_Template) CONST;
+   pSaveFile LIKEDS(QualifiedObjectName_T) CONST;
    pWorkPath CHAR(128) CONST;
  END-PI;
  //-------------------------------------------------------------------------
@@ -132,19 +115,19 @@ END-PROC;
 //**************************************************************************
 DCL-PROC manageSendingStuff;
  DCL-PI *N;
-   pQualifiedObjectName LIKEDS(QualifiedObjectName_Template) CONST;
+   pQualifiedObjectName LIKEDS(QualifiedObjectName_T) CONST;
    pObjectType CHAR(10) CONST;
-   pStreamFile LIKEDS(CommandVaryingParmDS_Template) CONST;
-   pRemoteSystem LIKEDS(CommandVaryingParmDS_Template) CONST;
+   pStreamFile LIKEDS(CommandVaryingParm_T) CONST;
+   pRemoteSystem LIKEDS(CommandVaryingParm_T) CONST;
    pAuthentication CHAR(7) CONST;
    pUserProfile CHAR(10) CONST;
-   pPassword LIKEDS(CommandVaryingParmDS_Template) CONST;
+   pPassword LIKEDS(CommandVaryingParm_T) CONST;
    pTargetRelease CHAR(8) CONST;
    pRestoreLibrary CHAR(10) CONST;
    pPort UNS(5) CONST;
    pUseTLS IND CONST;
    pDataCompression CHAR(7) CONST;
-   pSaveFile LIKEDS(QualifiedObjectName_Template) CONST;
+   pSaveFile LIKEDS(QualifiedObjectName_T) CONST;
    pWorkPath CHAR(128) CONST;
  END-PI;
 
@@ -169,9 +152,9 @@ DCL-PROC manageSendingStuff;
    Bytes UNS(20);
  END-DS;
 
- DCL-DS ClientSocket LIKEDS(Socket_Template) INZ;
- DCL-DS GSK LIKEDS(GSK_Template) INZ;
- DCL-DS StatDS LIKEDS(StatDS_Template) INZ;
+ DCL-DS ClientSocket LIKEDS(Socket_T) INZ;
+ DCL-DS GSK LIKEDS(GSK_T) INZ;
+ DCL-DS StatDS LIKEDS(Stat_T) INZ;
  //-------------------------------------------------------------------------
 
  // Quickcheck for some necessary parameters
@@ -445,11 +428,11 @@ END-PROC;
 
 //**************************************************************************
 DCL-PROC generateGSKEnvironment;
- DCL-PI *N LIKEDS(GSK_Template) END-PI;
+ DCL-PI *N LIKEDS(GSK_T) END-PI;
 
  DCL-S RC INT(10) INZ;
 
- DCL-DS GSK LIKEDS(GSK_Template) INZ;
+ DCL-DS GSK LIKEDS(GSK_T) INZ;
  //-------------------------------------------------------------------------
 
  RC = gsk_Environment_Open(GSK.Environment);
@@ -485,7 +468,7 @@ DCL-PROC initGSKEnvironment;
  DCL-PI *N;
    pUseTLS IND CONST;
    pSocketHandler INT(10) CONST;
-   pGSK LIKEDS(GSK_Template);
+   pGSK LIKEDS(GSK_T);
  END-PI;
 
  DCL-S RC INT(10) INZ;
@@ -524,7 +507,7 @@ DCL-PROC sendData;
  DCL-PI *N INT(10);
    pUseTLS IND CONST;
    pSocketHandler INT(10) CONST;
-   pGSK LIKEDS(GSK_Template) CONST;
+   pGSK LIKEDS(GSK_T) CONST;
    pData POINTER VALUE;
    pLength INT(10) CONST;
  END-PI;
@@ -554,7 +537,7 @@ DCL-PROC recieveData;
  DCL-PI *N INT(10);
    pUseTLS IND CONST;
    pSocketHandler INT(10) CONST;
-   pGSK LIKEDS(GSK_Template) CONST;
+   pGSK LIKEDS(GSK_T) CONST;
    pData POINTER VALUE;
    pLength INT(10) VALUE;
  END-PI;
@@ -583,7 +566,7 @@ DCL-PROC cleanUpSocket;
  DCL-PI *N;
    pUseTLS IND CONST;
    pSocketHandler INT(10) CONST;
-   pGSK LIKEDS(GSK_Template);
+   pGSK LIKEDS(GSK_T);
  END-PI;
  //-------------------------------------------------------------------------
 
@@ -601,12 +584,12 @@ DCL-PROC sendDie;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-DS Message LIKEDS(MessageHandling_Template) INZ;
+ DCL-DS Message LIKEDS(MessageHandling_T) INZ;
  //-------------------------------------------------------------------------
 
  Message.Length = %Len(%TrimR(pMessage));
  If ( Message.Length >= 0 );
-   sendProgramMessage('CPF9897'  :'QCPFMSG   *LIBL' :pMessage: Message.Length
+   sendProgramMessage('CPF9897'  :CPFMSG :pMessage: Message.Length
                       :'*ESCAPE' :'*PGMBDY' :1 :Message.Key :Message.Error);
  EndIf;
 
@@ -618,12 +601,12 @@ DCL-PROC sendStatus;
    pMessage CHAR(256) CONST;
  END-PI;
 
- DCL-DS Message LIKEDS(MessageHandling_Template) INZ;
+ DCL-DS Message LIKEDS(MessageHandling_T) INZ;
  //-------------------------------------------------------------------------
 
  Message.Length = %Len(%TrimR(pMessage));
  If ( Message.Length >= 0 );
-   sendProgramMessage('CPF9897'  :'QCPFMSG   *LIBL' :pMessage :Message.Length
+   sendProgramMessage('CPF9897'  :CPFMSG :pMessage :Message.Length
                       :'*STATUS' :'*EXT' :0 :Message.Key :Message.Error);
  EndIf;
 
