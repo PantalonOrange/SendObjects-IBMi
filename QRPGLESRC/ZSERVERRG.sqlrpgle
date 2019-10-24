@@ -307,6 +307,7 @@ DCL-PROC handleClient;
      Return;
    EndIf;
 
+   Reset Key;
    SwitchUserProfile.NewUser = %SubSt(Data :1 :10);
    Work = %SubSt(Data :11 :1000);
    Exec SQL SET :SwitchUserProfile.Password = DECRYPT_BIT(BINARY(RTRIM(:Work)), :Key);
