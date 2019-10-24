@@ -131,13 +131,8 @@ DCL-PROC manageSendingStuff;
    pWorkPath CHAR(128) CONST;
  END-PI;
 
- DCL-PR manageSavefile EXTPGM('ZCLIENTCL');
-   Save CHAR(64) CONST;
-   File CHAR(64) CONST;
- END-PR;
-
- DCL-S KEY CHAR(40) INZ('yourkey');
  DCL-S Loop IND INZ(TRUE);
+ DCL-S SaveSuccess IND INZ(TRUE);
 
  DCL-S RC INT(10) INZ;
  DCL-S Data CHAR(1024) INZ;
@@ -336,14 +331,19 @@ DCL-PROC manageSendingStuff;
  sendStatus('Prepare savefile to send, this may take a few moments ...');
  Monitor;
    manageSavefile('/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
-                                 %TrimR(pSaveFile.ObjectName) + '.FILE' :pWorkPath);
+                  %TrimR(pSaveFile.ObjectName) + '.FILE'
+                  :pWorkPath :SAVF_MODE_TO_FILE :SaveSuccess);
    On-Error;
-     cleanUpSocket(pUseTLS :ClientSocket.SocketHandler :GSK);
-     ifs_Unlink(%TrimR(pWorkPath));
-     System('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
-                           %TrimR(pSaveFile.ObjectName) + ')');
-     sendDie('Error occured while preparing savefile. See joblog.');
+     SaveSuccess = FALSE;
  EndMon;
+
+ If Not SaveSuccess;
+   cleanUpSocket(pUseTLS :ClientSocket.SocketHandler :GSK);
+   ifs_Unlink(%TrimR(pWorkPath));
+   System('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
+                         %TrimR(pSaveFile.ObjectName) + ')');
+   sendDie('Error occured while preparing savefile. See joblog.');
+ EndIf;
 
  system('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                        %TrimR(pSaveFile.ObjectName) + ')');

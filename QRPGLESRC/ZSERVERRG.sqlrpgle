@@ -55,9 +55,6 @@ END-PR;
 /DEFINE IS_ZSERVER
 /INCLUDE QRPGLECPY,Z_H
 
-DCL-C P_SAVE '/QSYS.LIB/QTEMP.LIB/RCV.FILE';
-DCL-C P_FILE '/tmp/rcv.file';
-
 
 //#########################################################################
 DCL-PROC Main;
@@ -250,15 +247,7 @@ DCL-PROC handleClient;
    pGSK LIKEDS(GSK_T);
  END-PI;
 
- DCL-PR manageSavefile EXTPGM('ZSERVERCL');
-   Success CHAR(1);
-   Save CHAR(64) CONST;
-   File CHAR(64) CONST;
- END-PR;
-
 /INCLUDE QRPGLECPY,SETUSR_H
-
- DCL-S KEY CHAR(40) INZ('yourkey');
 
  DCL-S Loop IND INZ(TRUE);
  DCL-S RestoreSuccess IND INZ(TRUE);
@@ -301,7 +290,7 @@ DCL-PROC handleClient;
    Return;
  EndIf;
 
- // User and password recieve and check / change to called user when authentication is *USRPRF
+ // User and password receive and check / change to called user when authentication is *USRPRF
  If ( pAuthentication = '*USRPRF' );
    RC = recieveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
    If ( RC <= 0 ) Or ( Data = '' );
@@ -425,7 +414,7 @@ DCL-PROC handleClient;
 
  Data = '*OK>';
  Monitor;
-   ManageSavefile(RestoreSuccess :P_SAVE :P_FILE);
+   ManageSavefile(P_SAVE :P_FILE :SAVF_MODE_FROM_FILE :RestoreSuccess);
    On-Error;
      RestoreSuccess = FALSE;
  EndMon;
