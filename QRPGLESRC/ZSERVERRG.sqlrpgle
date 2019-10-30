@@ -269,7 +269,7 @@ DCL-PROC handleClient;
  //-------------------------------------------------------------------------
 
  // Check protocoll and session
- RC = recieveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
+ RC = receiveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
  If ( RC <= 0 ) Or ( Data = '' );
    Data = '*UNKNOWNPROTOCOLL>';
    sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
@@ -292,7 +292,7 @@ DCL-PROC handleClient;
 
  // User and password receive and check / change to called user when authentication is *USRPRF
  If ( pAuthentication = '*USRPRF' );
-   RC = recieveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
+   RC = receiveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
    If ( RC <= 0 ) Or ( Data = '' );
      Data = '*NOLOGINDATA>';
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
@@ -365,18 +365,18 @@ DCL-PROC handleClient;
    SendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
    sendJobLog('+> Login for user "' + %TrimR(SwitchUserProfile.NewUser) + '" was successfull');
  Else;
-   RC = recieveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
+   RC = receiveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
    Data = '*OK>';
    sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
    sendJobLog('+> Anonymous connected');
  EndIf;
 
  // Handle incomming file- and restore informations
- recieveData(pUseTLS :pSocket :pGSK :%Addr(RestoreCommand) :%Size(RestoreCommand));
+ receiveData(pUseTLS :pSocket :pGSK :%Addr(RestoreCommand) :%Size(RestoreCommand));
  If ( %SubSt(RestoreCommand :1 :3) <> 'RST' );
    Data = '*NORESTORE>';
    sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-   sendJobLog('+> Invalid restorecommand recieved. End connection with client');
+   sendJobLog('+> Invalid restorecommand received. End connection with client');
    Return;
  Else;
    Data = '*OK>';
@@ -391,7 +391,7 @@ DCL-PROC handleClient;
  Reset RetrievingFile.Bytes;
 
  DoW ( Loop ) And ( RetrievingFile.FileHandler >= 0 );
-   RetrievingFile.Length = recieveData(pUseTLS :pSocket :pGSK
+   RetrievingFile.Length = receiveData(pUseTLS :pSocket :pGSK
                                        :%Addr(RetrievingFile.Data) :%Size(RetrievingFile.Data));
    If ( RetrievingFile.Length <= 0 );
      IFS_Close(RetrievingFile.FileHandler);
@@ -411,7 +411,7 @@ DCL-PROC handleClient;
    EndIf;
  EndDo;
 
- sendJobLog('+> ' + %Char(%DecH(RetrievingFile.Bytes/1024 :17 :2)) + ' KBytes recieved');
+ sendJobLog('+> ' + %Char(%DecH(RetrievingFile.Bytes/1024 :17 :2)) + ' KBytes received');
 
  Data = '*OK>';
  Monitor;
@@ -541,7 +541,7 @@ DCL-PROC sendData;
 END-PROC;
 
 //**************************************************************************
-DCL-PROC recieveData;
+DCL-PROC receiveData;
  DCL-PI *N INT(10);
    pUseTLS IND CONST;
    pSocket LIKEDS(Socket_T) CONST;
