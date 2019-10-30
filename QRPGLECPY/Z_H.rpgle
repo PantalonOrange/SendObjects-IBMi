@@ -84,3 +84,5 @@ DCL-C P_FILE '/tmp/rcv.file';
 
 DCL-C SAVF_MODE_TO_FILE '1';
 DCL-C SAVF_MODE_FROM_FILE '2';
+DCL-C EDTW052 ' 0 ,  ';
+DCL-C EDTW172 '   .   .   .   . 0 ,  ';

@@ -30,6 +30,7 @@
 //  17.10.2019  Disabled elder ssl and tls protocolls
 //               Add varying streamfilepathparm over command
 //  23.10.2019  Cosmetic changes
+//  30.10.2019  Editwords and other small changes
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -398,9 +399,10 @@ DCL-PROC manageSendingStuff;
      Leave;
    EndIf;
    SendingFile.Bytes += SendingFile.Length;
-   sendStatus('Sending data to host, ' + %Char(%DecH(SendingFile.Bytes/1024 :17 :2)) +
-              ' KBytes of ' + %Char(%DecH(StatDS.Size/1024 :17 :2)) +
-              ' KBytes transfered ...');
+   sendStatus('Sending data to host, ' +
+              %Trim(%EditW(%DecH(SendingFile.Bytes/1024 :17 :2) :EDTW172)) + ' KB of ' + 
+              %Trim(%EditW(%DecH(StatDS.Size/1024 :17 :2) :EDTW172)) + ' KB transfered (' +
+              %Trim(%EditW(%DecH(SendingFile.Bytes/(StatDS.Size/100) :5 :2) :EDTW052)) + '%)');
    sendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data) :SendingFile.Length);
    Clear SendingFile.Data;
  EndDo;

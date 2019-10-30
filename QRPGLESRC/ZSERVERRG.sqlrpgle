@@ -28,6 +28,7 @@
 
 // Changes:
 //  23.10.2019  Cosmetic changes
+//  30.10.2019  Editwords and other small changes
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -411,7 +412,8 @@ DCL-PROC handleClient;
    EndIf;
  EndDo;
 
- sendJobLog('+> ' + %Char(%DecH(RetrievingFile.Bytes/1024 :17 :2)) + ' KBytes received');
+ sendJobLog('+> ' + %Trim(%EditW(%DecH(RetrievingFile.Bytes/1024 :17 :2) :EDTW172)) +
+            ' KB received');
 
  Data = '*OK>';
  Monitor;
