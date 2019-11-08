@@ -60,7 +60,7 @@ DCL-PR ifs_Access INT(10) EXTPROC('access');
  Mode INT(10) VALUE;
 END-PR;
 
-DCL-DS StatDS_Template TEMPLATE QUALIFIED;
+DCL-DS Stat_T TEMPLATE QUALIFIED;
   Mode UNS(10);
   FileID UNS(10);
   NLinks UNS(5);
