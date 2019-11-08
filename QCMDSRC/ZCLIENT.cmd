@@ -1,7 +1,7 @@
              CMD        PROMPT('Send objects') TEXT('Send objects') +
                           ALLOW(*ALL) MODE(*ALL) ALWLMTUSR(*NO) +
-                          HLPID(*CMD) HLPPNLGRP(WEDSOCKET/ZCLIENT) +
-                          PRDLIB(WEDSOCKET)
+                          HLPID(*CMD) HLPPNLGRP(changelibraryname/ZCLIENT) +
+                          PRDLIB(changelibraryname)
 
              PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) +
                           PROMPT('Objectname')
