@@ -18,6 +18,11 @@ object(s).
 :P.:HP1.*ALL:EHP1. is the default value.
 :EHELP.
 
+:HELP NAME='ZCLIENT/MBR'.Member - Help
+:XH3.Membername
+:P.Please insert the name for your member.
+:EHELP.
+
 :HELP NAME='ZCLIENT/FROMSTMF'.Streamfile - Help
 :XH3.Streamfile
 :P.Please insert the path for your streamfile(s).

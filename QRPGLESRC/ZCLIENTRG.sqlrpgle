@@ -31,6 +31,7 @@
 //               Add varying streamfilepathparm over command
 //  23.10.2019  Cosmetic changes
 //  30.10.2019  Editwords and other small changes
+//  19.11.2019  Don't update the object history by save and add member-support
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -40,6 +41,7 @@ CTL-OPT MAIN(Main);
 DCL-PR Main EXTPGM('ZCLIENTRG');
   QualifiedObjectName CHAR(20) CONST;
   ObjectType CHAR(10) CONST;
+  MemberName CHAR(10) CONST;
   StreamFile LIKEDS(CommandVaryingParm_T) CONST;
   RemoteSystem LIKEDS(CommandVaryingParm_T) CONST;
   Authentication CHAR(7) CONST;
@@ -74,6 +76,7 @@ DCL-PROC Main;
  DCL-PI *N;
    pQualifiedObjectName CHAR(20) CONST;
    pObjectType CHAR(10) CONST;
+   pMemberName CHAR(10) CONST;
    pStreamFile LIKEDS(CommandVaryingParm_T) CONST;
    pRemoteSystem LIKEDS(CommandVaryingParm_T) CONST;
    pAuthentication CHAR(7) CONST;
@@ -91,9 +94,10 @@ DCL-PROC Main;
 
  *INLR = TRUE;
 
- If ( %Parms() = 14 ) And ( pQualifiedObjectName <> '' );
+ If ( %Parms() = 15 ) And ( pQualifiedObjectName <> '' );
    manageSendingStuff(pQualifiedObjectName
                       :pObjectType
+                      :pMemberName
                       :pStreamfile
                       :pRemoteSystem
                       :pAuthentication
@@ -118,6 +122,7 @@ DCL-PROC manageSendingStuff;
  DCL-PI *N;
    pQualifiedObjectName LIKEDS(QualifiedObjectName_T) CONST;
    pObjectType CHAR(10) CONST;
+   pMemberName CHAR(10) CONST;
    pStreamFile LIKEDS(CommandVaryingParm_T) CONST;
    pRemoteSystem LIKEDS(CommandVaryingParm_T) CONST;
    pAuthentication CHAR(7) CONST;
@@ -160,6 +165,8 @@ DCL-PROC manageSendingStuff;
    sendDie('No password selected.');
  ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length = 0 );
    sendDie('No streamfile selected.');
+ ElseIf ( pObjectType = '*MBR' ) And ( pMemberName = '' );
+   sendDie('No member selected.');
  ElseIf ( pRemoteSystem.Length = 0 );
    sendDie('No host selected.');
  EndIf;
@@ -173,6 +180,10 @@ DCL-PROC manageSendingStuff;
       Clear RC;
    When ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*LIB' );
      RC = system('CHKOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') OBJTYPE(*LIB)');
+   When ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*MBR' );
+     RC = system('CHKOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectLibrary) + '/' +
+                 %TrimR(pQualifiedObjectName.ObjectName) + ') OBJTYPE(*FILE) MBR(' +
+                 %TrimR(pMemberName) + ')');
    When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length > 0 )
     And ( %Scan('*' :pStreamfile.Data) > 0 );
       Clear RC;
@@ -215,12 +226,12 @@ DCL-PROC manageSendingStuff;
 
  P_SockAddr = ClientSocket.ConnectTo;
  Sin_Family = AF_INET;
- Sin_Addr   = ClientSocket.Address;
- Sin_Port   = pPort;
- Sin_Zero   = *ALLx'00';
+ Sin_Addr = ClientSocket.Address;
+ Sin_Port = pPort;
+ Sin_Zero = *ALLx'00';
 
  // Connect to host
- If ( Connect(ClientSocket.SocketHandler :ClientSocket.ConnectTo
+ If ( connect(ClientSocket.SocketHandler :ClientSocket.ConnectTo
               :ClientSocket.AddressLength) < 0 );
    ErrorNumber = ErrNo;
    cleanUpSocket(pUseTLS :ClientSocket.SocketHandler :GSK);
@@ -306,14 +317,32 @@ DCL-PROC manageSendingStuff;
    SaveCommand = 'SAVLIB LIB(' + %TrimR(pQualifiedObjectName.ObjectName) +
                  ') DEV(*SAVF) SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                  %TrimR(pSaveFile.ObjectName) +') TGTRLS(' + %TrimR(pTargetRelease) +
-                 ') SAVACT(*LIB) DTACPR(' + %TrimR(pDataCompression) + ')';
- ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType <> '*LIB' );
+                 ') UPDHST(*NO) SAVACT(*LIB) DTACPR(' + %TrimR(pDataCompression) + ')';
+                 
+ ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType <> '*LIB' )
+    And ( pObjectType <> '*MBR' );
    SaveCommand = 'SAVOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') LIB(' +
                  %TrimR(pQualifiedObjectName.ObjectLibrary) + ') '+
                  'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) ' +
                  'SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' + %TrimR(pSaveFile.ObjectName) +
-                 ') TGTRLS(' + %TrimR(pTargetRelease) + ') SAVACT(*LIB) ' +
+                 ') TGTRLS(' + %TrimR(pTargetRelease) + ') UPDHST(*NO) SAVACT(*LIB) ' +
                  'DTACPR(' + %TrimR(pDataCompression) + ')';
+                 
+ ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*MBR' );
+   RC = system('CPYF FROMFILE(' + %TrimR(pQualifiedObjectName.ObjectLibrary) + '/' +
+               %TrimR(pQualifiedObjectName.ObjectName) + ') TOFILE(QTEMP/' +
+               %TrimR(pQualifiedObjectName.ObjectName) + ') FROMMBR(' +
+               %TrimR(pMemberName) + ') TOMBR(*FROMMBR) MBROPT(*REPLACE) CRTFILE(*YES)');
+   If ( RC <> 0 );
+     sendDie('Error occured while copying member.');
+   Else;
+     SaveCommand = 'SAVOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') LIB(QTEMP) ' +
+                   'OBJTYPE(*FILE) DEV(*SAVF) ' +
+                   'SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' + %TrimR(pSaveFile.ObjectName) +
+                   ') TGTRLS(' + %TrimR(pTargetRelease) + ') UPDHST(*NO) SAVACT(*LIB) ' +
+                   'DTACPR(' + %TrimR(pDataCompression) + ')';
+   EndIf;
+   
  ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length > 0 );
    SaveCommand = 'SAV DEV(''/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
                   %TrimR(pSaveFile.ObjectName) + '.FILE'') OBJ(''' + %TrimR(pStreamFile.Data) +
@@ -326,7 +355,14 @@ DCL-PROC manageSendingStuff;
    cleanUpSocket(pUseTLS :ClientSocket.SocketHandler :GSK);
    system('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                          %TrimR(pSaveFile.ObjectName) + ')');
+   If ( pObjectType = '*MBR' );
+     system('DLTF FILE(QTEMP/' + %TrimR(pQualifiedObjectName.ObjectName) + ')');
+   EndIf;
    sendDie('Error occured while saving data. See joblog.');
+ EndIf;
+
+ If ( pObjectType = '*MBR' );
+   system('DLTF FILE(QTEMP/' + %TrimR(pQualifiedObjectName.ObjectName) + ')');
  EndIf;
 
  sendStatus('Prepare savefile to send, this may take a few moments ...');
@@ -341,7 +377,7 @@ DCL-PROC manageSendingStuff;
  If Not SaveSuccess;
    cleanUpSocket(pUseTLS :ClientSocket.SocketHandler :GSK);
    ifs_Unlink(%TrimR(pWorkPath));
-   System('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
+   system('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                          %TrimR(pSaveFile.ObjectName) + ')');
    sendDie('Error occured while preparing savefile. See joblog.');
  EndIf;
@@ -360,15 +396,25 @@ DCL-PROC manageSendingStuff;
    Data = 'RSTLIB SAVLIB(' + %TrimR(pQualifiedObjectName.ObjectName) +
           ') DEV(*SAVF) SAVF(QTEMP/RCV) MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB('
           + %TrimR(pRestoreLibrary) + ')';
- ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType <> '*LIB' );
+          
+ ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType <> '*LIB' )
+    And ( pObjectType <> '*MBR' );
    Data = 'RSTOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') SAVLIB(' +
           %TrimR(pQualifiedObjectName.ObjectLibrary) + ') ' +
           'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) SAVF(QTEMP/RCV) ' +
           'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
+          
+ ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*MBR' );
+   Data = 'MBR' + pQualifiedObjectName.ObjectLibrary + pQualifiedObjectName.ObjectName + 
+          'RSTOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') SAVLIB(QTEMP) ' +
+          'OBJTYPE(*FILE) DEV(*SAVF) SAVF(QTEMP/RCV) ' +
+          'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
+
  ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' );
-   Data = 'RST DEV(''/QSYS.LIB/QTEMP.LIB/RCV.FILE'') OBJ(''' + %TrimR(pStreamFile.Data) + ''') ' +
-          'SUBTREE(*ALL) CRTPRNDIR(*YES) ALWOBJDIF(*ALL)';
+   Data = 'RST DEV(''/QSYS.LIB/QTEMP.LIB/RCV.FILE'') OBJ(''' + 
+          %TrimR(pStreamFile.Data) + ''') SUBTREE(*ALL) CRTPRNDIR(*YES) ALWOBJDIF(*ALL)';
  EndIf;
+ 
  sendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
  Clear Data;
  RC = receiveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
@@ -400,7 +446,7 @@ DCL-PROC manageSendingStuff;
    EndIf;
    SendingFile.Bytes += SendingFile.Length;
    sendStatus('Sending data to host, ' +
-              %Trim(%EditW(%DecH(SendingFile.Bytes/1024 :17 :2) :EDTW172)) + ' KB of ' + 
+              %Trim(%EditW(%DecH(SendingFile.Bytes/1024 :17 :2) :EDTW172)) + ' KB of ' +
               %Trim(%EditW(%DecH(StatDS.Size/1024 :17 :2) :EDTW172)) + ' KB transfered (' +
               %Trim(%EditW(%DecH(SendingFile.Bytes/(StatDS.Size/100) :5 :2) :EDTW052)) + '%)');
    sendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data) :SendingFile.Length);

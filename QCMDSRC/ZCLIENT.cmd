@@ -20,9 +20,12 @@
                           *PSFCFG *QMFORM *QMQRY *QRYDFN *RCT *SBSD +
                           *SCHIDX *SPADCT *SQLPKG *SQLUDT *SQLXSR +
                           *SRVPGM *SSND *SVRSTG *S36 *TBL *TIMZON +
-                          *USRIDX *USRQ *USRSPC *VLDL *WSCST) +
-                          CHOICE('Type, *ALL') PMTCTL(USEOBJ) +
-                          PROMPT('Objecttype')
+                          *USRIDX *USRQ *USRSPC *VLDL *WSCST +
+                          *MBR) CHOICE('Type, *ALL, *MBR') +
+                          PMTCTL(USEOBJ) PROMPT('Objecttype')
+
+             PARM       KWD(MBR) TYPE(*NAME) LEN(10) PMTCTL(SAVEMBR) +
+                          PROMPT('Member')
 
              PARM       KWD(FROMSTMF) TYPE(*PNAME) LEN(512) +
                           VARY(*YES *INT2) PMTCTL(USESTMF) +
@@ -79,6 +82,8 @@
 
  SAVOBJ:     QUAL       TYPE(*SNAME) DFT(SND)
              QUAL       TYPE(*SNAME) DFT(QTEMP) PROMPT('Library')
+
+ SAVEMBR:    PMTCTL     CTL(OBJTYPE) COND((*EQ '*MBR'))
 
  AUTHUSR:    PMTCTL     CTL(AUTH) COND((*EQ '*USRPRF'))
 

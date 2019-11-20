@@ -29,6 +29,7 @@
 // Changes:
 //  23.10.2019  Cosmetic changes
 //  30.10.2019  Editwords and other small changes
+//  19.11.2019  Add member-support
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -136,7 +137,7 @@ DCL-PROC makeListener;
  If pUseTLS;
    pUseTLS = generateGSKEnvironment(pGSK :pAppID);
    If Not pUseTLS;
-     SendJobLog('+> Server was not able to generate gsk-environment. Continue without tls');
+     sendJobLog('+> Server was not able to generate gsk-environment. Continue without tls');
    EndIf;
  EndIf;
 
@@ -205,7 +206,7 @@ DCL-PROC acceptConnection;
      Return;
    EndIf;
 
-   l_OnOff  = 1;
+   l_OnOff = 1;
    l_Linger = 10;
    setSockOpt(pSocket.Talk :SOL_SOCKET :SO_LINGER :pLingering.LingerHandler :pLingering.Length);
 
@@ -263,6 +264,12 @@ DCL-PROC handleClient;
    Length INT(10);
    Data CHAR(32766);
    Bytes UNS(20);
+ END-DS;
+ 
+ DCL-DS RestoreMember QUALIFIED;
+   ModeMember IND INZ(FALSE);
+   ObjectLibrary CHAR(10) INZ;
+   ObjectName CHAR(10) INZ;
  END-DS;
 
  DCL-DS RTVM0100 LIKEDS(RTVM0100_T);
@@ -374,7 +381,7 @@ DCL-PROC handleClient;
 
  // Handle incomming file- and restore informations
  receiveData(pUseTLS :pSocket :pGSK :%Addr(RestoreCommand) :%Size(RestoreCommand));
- If ( %SubSt(RestoreCommand :1 :3) <> 'RST' );
+ If ( %SubSt(RestoreCommand :1 :3) <> 'RST' ) And ( %SubSt(RestoreCommand :1 :3) <> 'MBR' );
    Data = '*NORESTORE>';
    sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
    sendJobLog('+> Invalid restorecommand received. End connection with client');
@@ -395,7 +402,7 @@ DCL-PROC handleClient;
    RetrievingFile.Length = receiveData(pUseTLS :pSocket :pGSK
                                        :%Addr(RetrievingFile.Data) :%Size(RetrievingFile.Data));
    If ( RetrievingFile.Length <= 0 );
-     IFS_Close(RetrievingFile.FileHandler);
+     ifs_Close(RetrievingFile.FileHandler);
      Leave;
    EndIf;
 
@@ -403,11 +410,11 @@ DCL-PROC handleClient;
 
    If ( %Scan('*EOF>' :RetrievingFile.Data) > 0 );
      RetrievingFile.Data = %SubSt(RetrievingFile.Data :1 :%Scan('*EOF>' :RetrievingFile.Data) - 1);
-     IFS_Write(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length - 5);
-     IFS_Close(RetrievingFile.FileHandler);
+     ifs_Write(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length - 5);
+     ifs_Close(RetrievingFile.FileHandler);
      Leave;
    Else;
-     IFS_Write(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length);
+     ifs_Write(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length);
      Clear RetrievingFile.Data;
    EndIf;
  EndDo;
@@ -415,19 +422,36 @@ DCL-PROC handleClient;
  sendJobLog('+> ' + %Trim(%EditW(%DecH(RetrievingFile.Bytes/1024 :17 :2) :EDTW172)) +
             ' KB received');
 
+ sendJobLog('+> Manage received savefile');
+
  Data = '*OK>';
  Monitor;
-   ManageSavefile(P_SAVE :P_FILE :SAVF_MODE_FROM_FILE :RestoreSuccess);
+   manageSavefile(P_SAVE :P_FILE :SAVF_MODE_FROM_FILE :RestoreSuccess);
    On-Error;
      RestoreSuccess = FALSE;
  EndMon;
 
- sendJobLog('+> Restore: ' + %TrimR(RestoreCommand));
-
  If Not RestoreSuccess;
    Data = '*ERROR_RESTORE> Error occured while writing to savefile';
  Else;
-   If ( System(RestoreCommand) <> 0 );
+   RestoreMember.ModeMember = ( %SubSt(RestoreCommand :1 :3) = 'MBR' );
+   If RestoreMember.ModeMember;
+     RestoreMember.ObjectLibrary = %SubSt(RestoreCommand :4 :10);
+     RestoreMember.ObjectName = %SubSt(RestoreCommand :14 :10);
+     RestoreCommand = %SubSt(RestoreCommand :24 :1000);
+   EndIf;
+   sendJobLog('+> Try to restore: ' + %TrimR(RestoreCommand));
+   If ( system(RestoreCommand) <> 0 );
+     Data = '*ERROR_RESTORE> ' + %Str(strError(ErrNo));
+     RestoreSuccess = FALSE;
+   EndIf;
+ EndIf;
+ If RestoreMember.ModeMember;
+   RC = system('CPYF FROMFILE(QTEMP/' + %TrimR(RestoreMember.ObjectName) + 
+               ') TOFILE(' + %TrimR(RestoreMember.ObjectLibrary) + '/' + 
+               %TrimR(RestoreMember.ObjectName) + 
+               ') FROMMBR(*ALL) TOMBR(*FROMMBR) MBROPT(*REPLACE)');
+   If ( RC <> 0 );
      Data = '*ERROR_RESTORE> ' + %Str(strError(ErrNo));
      RestoreSuccess = FALSE;
    EndIf;
@@ -579,7 +603,7 @@ END-PROC;
 DCL-PROC cleanTemp;
 
  ifs_Unlink(P_FILE);
- system('DLTF FILE(QTEMP/RCV)');
+ system('CLRLIB LIB(QTEMP)');
 
 END-PROC;
 
