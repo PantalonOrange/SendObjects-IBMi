@@ -22,6 +22,12 @@ To create the objects copy the sources to your sourcefiles (qrpglesrc, qcmdsrc, 
 2. Add this jobdescription as a autostartjob to your subsystem:  
 ```ADDAJE SBSD(SUBSYSTEM) JOB(ZSERVER) JOBD(YOURLIB/ZSERVER)```
 
+### Tip to use from pdm:
+Create via F16 user defined pdm-options.
+I have created 2, ZC (objects) and ZS (members)
+ZC: ```YOURLIB/ZCLIENT OBJ(&L/&N) OBJTYPE(&T) RMTSYS(SYSTEMNAME) AUTH(*USRPRF)```
+ZS: ```YOURLIB/ZCLIENT OBJ(&L/&F) OBJTYPE(*MBR) MBR(&N) RMTSYS(SYSTEMNAME) AUTH(*USRPRF)```
+
 ## Update 19.11.2019
 Add membersupport to zclient and zserver
 ![ZCLIENT](https://github.com/PantalonOrange/SendObjects-IBMi/blob/master/zclient_mbr.gif)
