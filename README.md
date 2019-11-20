@@ -22,6 +22,10 @@ To create the objects copy the sources to your sourcefiles (qrpglesrc, qcmdsrc, 
 2. Add this jobdescription as a autostartjob to your subsystem:  
 ```ADDAJE SBSD(SUBSYSTEM) JOB(ZSERVER) JOBD(YOURLIB/ZSERVER)```
 
+## Update 19.11.2019
+Add membersupport to zclient and zserver
+![ZCLIENT](https://github.com/PantalonOrange/SendObjects-IBMi/blob/master/zclient_mbr.gif)
+
 ## Update 29.05.2019
 ### ZSERVER
 Add API ```QMHRTVM``` and SQL ```GET DIAGNOSTIC``` to return specific errorsmessages to client
