@@ -32,6 +32,7 @@
 //  23.10.2019  Cosmetic changes
 //  30.10.2019  Editwords and other small changes
 //  19.11.2019  Don't update the object history by save and add member-support
+//  16.12.2019  Bugfix checks because length var is not 0 when data is ''
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -161,13 +162,13 @@ DCL-PROC manageSendingStuff;
  // Quickcheck for some necessary parameters
  If ( pAuthentication = '*USRPRF' ) And ( pUserProfile = '' );
    sendDie('No userprofile selected.');
- ElseIf ( pAuthentication = '*USRPRF' ) And ( pPassword.Length = 0 );
+ ElseIf ( pAuthentication = '*USRPRF' ) And ( pPassword.Data = '' );
    sendDie('No password selected.');
- ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length = 0 );
+ ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Data = '' );
    sendDie('No streamfile selected.');
  ElseIf ( pObjectType = '*MBR' ) And ( pMemberName = '' );
    sendDie('No member selected.');
- ElseIf ( pRemoteSystem.Length = 0 );
+ ElseIf ( pRemoteSystem.Data = '' );
    sendDie('No host selected.');
  EndIf;
 
@@ -184,10 +185,10 @@ DCL-PROC manageSendingStuff;
      RC = system('CHKOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectLibrary) + '/' +
                  %TrimR(pQualifiedObjectName.ObjectName) + ') OBJTYPE(*FILE) MBR(' +
                  %TrimR(pMemberName) + ')');
-   When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length > 0 )
+   When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Data <> '' )
     And ( %Scan('*' :pStreamfile.Data) > 0 );
       Clear RC;
-   When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length > 0 )
+   When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Data <> '' )
     And ( %Scan('*' :pStreamfile.Data) = 0 );
      RC = ifs_Access(%TrimR(pStreamFile.Data) :F_OK);
    Other;
@@ -318,7 +319,7 @@ DCL-PROC manageSendingStuff;
                  ') DEV(*SAVF) SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                  %TrimR(pSaveFile.ObjectName) +') TGTRLS(' + %TrimR(pTargetRelease) +
                  ') UPDHST(*NO) SAVACT(*LIB) DTACPR(' + %TrimR(pDataCompression) + ')';
-                 
+
  ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType <> '*LIB' )
     And ( pObjectType <> '*MBR' );
    SaveCommand = 'SAVOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') LIB(' +
@@ -327,7 +328,7 @@ DCL-PROC manageSendingStuff;
                  'SAVF(' + %TrimR(pSaveFile.ObjectLibrary) + '/' + %TrimR(pSaveFile.ObjectName) +
                  ') TGTRLS(' + %TrimR(pTargetRelease) + ') UPDHST(*NO) SAVACT(*LIB) ' +
                  'DTACPR(' + %TrimR(pDataCompression) + ')';
-                 
+
  ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*MBR' );
    RC = system('CPYF FROMFILE(' + %TrimR(pQualifiedObjectName.ObjectLibrary) + '/' +
                %TrimR(pQualifiedObjectName.ObjectName) + ') TOFILE(QTEMP/' +
@@ -342,8 +343,8 @@ DCL-PROC manageSendingStuff;
                    ') TGTRLS(' + %TrimR(pTargetRelease) + ') UPDHST(*NO) SAVACT(*LIB) ' +
                    'DTACPR(' + %TrimR(pDataCompression) + ')';
    EndIf;
-   
- ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Length > 0 );
+
+ ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Data <> '' );
    SaveCommand = 'SAV DEV(''/QSYS.LIB/' + %TrimR(pSaveFile.ObjectLibrary) + '.LIB/' +
                   %TrimR(pSaveFile.ObjectName) + '.FILE'') OBJ(''' + %TrimR(pStreamFile.Data) +
                   ''') SUBTREE(*ALL) TGTRLS(' + %TrimR(pTargetRelease) + ') ' +
@@ -396,25 +397,25 @@ DCL-PROC manageSendingStuff;
    Data = 'RSTLIB SAVLIB(' + %TrimR(pQualifiedObjectName.ObjectName) +
           ') DEV(*SAVF) SAVF(QTEMP/RCV) MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB('
           + %TrimR(pRestoreLibrary) + ')';
-          
+
  ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType <> '*LIB' )
     And ( pObjectType <> '*MBR' );
    Data = 'RSTOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') SAVLIB(' +
           %TrimR(pQualifiedObjectName.ObjectLibrary) + ') ' +
           'OBJTYPE(' + %TrimR(pObjectType) +  ') DEV(*SAVF) SAVF(QTEMP/RCV) ' +
           'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
-          
+
  ElseIf ( pQualifiedObjectName.ObjectName <> '*STMF' ) And ( pObjectType = '*MBR' );
-   Data = 'MBR' + pQualifiedObjectName.ObjectLibrary + pQualifiedObjectName.ObjectName + 
+   Data = 'MBR' + pQualifiedObjectName.ObjectLibrary + pQualifiedObjectName.ObjectName +
           'RSTOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectName) + ') SAVLIB(QTEMP) ' +
           'OBJTYPE(*FILE) DEV(*SAVF) SAVF(QTEMP/RCV) ' +
           'MBROPT(*ALL) ALWOBJDIF(*ALL) RSTLIB(' + %TrimR(pRestoreLibrary) + ')';
 
  ElseIf ( pQualifiedObjectName.ObjectName = '*STMF' );
-   Data = 'RST DEV(''/QSYS.LIB/QTEMP.LIB/RCV.FILE'') OBJ(''' + 
+   Data = 'RST DEV(''/QSYS.LIB/QTEMP.LIB/RCV.FILE'') OBJ(''' +
           %TrimR(pStreamFile.Data) + ''') SUBTREE(*ALL) CRTPRNDIR(*YES) ALWOBJDIF(*ALL)';
  EndIf;
- 
+
  sendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Len(%TrimR(Data)));
  Clear Data;
  RC = receiveData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(Data) :%Size(Data));
