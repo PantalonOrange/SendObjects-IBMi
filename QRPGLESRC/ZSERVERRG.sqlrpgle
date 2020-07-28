@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018, 2019 Christian Brunner
+//- Copyright (c) 2018 - 2020 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -265,7 +265,7 @@ DCL-PROC handleClient;
    Data CHAR(32766);
    Bytes UNS(20);
  END-DS;
- 
+
  DCL-DS RestoreMember QUALIFIED;
    ModeMember IND INZ(FALSE);
    ObjectLibrary CHAR(10) INZ;
@@ -304,14 +304,14 @@ DCL-PROC handleClient;
    If ( RC <= 0 ) Or ( Data = '' );
      Data = '*NOLOGINDATA>';
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> No userinformations passed');
+     sendJobLog('+> No userinformations passed. End connection with client.');
      Return;
    EndIf;
 
    If ( Data = '*AUTH_NONE>' );
      Data = '*NONONEALLOWED>';
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> No anonymous login allowed');
+     sendJobLog('+> No anonymous login allowed. End connection with client.');
      Return;
    EndIf;
 
@@ -325,7 +325,7 @@ DCL-PROC handleClient;
      Data = '*NOPWD>' + %TrimR(Work);
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%TrimR(Data)));
      sendJobLog('+> Password decryption failed for user "' + %TrimR(SwitchUserProfile.NewUser) +
-                '": ' + %TrimR(Work));
+                '": ' + %TrimR(Work) + ' End connection with client.');
      Return;
    EndIf;
 
@@ -346,7 +346,8 @@ DCL-PROC handleClient;
      Work = Data;
      Data = '*NOACCESS>' + %TrimR(Data);
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> Login failed for user "' + %TrimR(SwitchUserProfile.NewUser) + '": ' + Work);
+     sendJobLog('+> Login failed for user "' + %TrimR(SwitchUserProfile.NewUser) + '": ' +
+                 %TrimR(Work) + ' End connection with client.');
      Return;
    EndIf;
 
@@ -364,7 +365,8 @@ DCL-PROC handleClient;
      Work = Data;
      Data = '*NOACCESS>' + Data;
      sendData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Len(%Trim(Data)));
-     sendJobLog('+> No access for user "' + %TrimR(SwitchUserProfile.NewUser) + '": ' + Work);
+     sendJobLog('+> No access for user "' + %TrimR(SwitchUserProfile.NewUser) + '": ' +
+                 %TrimR(Work) + ' End connection with client.');
      Return;
    EndIf;
 
@@ -393,7 +395,7 @@ DCL-PROC handleClient;
 
  // Handle incomming data
  sendJobLog('+> Waiting for incomming data');
- RetrievingFile.FileHandler = IFS_Open(P_FILE :O_WRONLY + O_TRUNC + O_CREAT + O_LARGEFILE
+ RetrievingFile.FileHandler = ifsOpen(P_FILE :O_WRONLY + O_TRUNC + O_CREATE + O_LARGEFILE
                               :S_IRWXU + S_IRWXG + S_IRWXO);
 
  Reset RetrievingFile.Bytes;
@@ -402,7 +404,7 @@ DCL-PROC handleClient;
    RetrievingFile.Length = receiveData(pUseTLS :pSocket :pGSK
                                        :%Addr(RetrievingFile.Data) :%Size(RetrievingFile.Data));
    If ( RetrievingFile.Length <= 0 );
-     ifs_Close(RetrievingFile.FileHandler);
+     ifsClose(RetrievingFile.FileHandler);
      Leave;
    EndIf;
 
@@ -410,11 +412,11 @@ DCL-PROC handleClient;
 
    If ( %Scan('*EOF>' :RetrievingFile.Data) > 0 );
      RetrievingFile.Data = %SubSt(RetrievingFile.Data :1 :%Scan('*EOF>' :RetrievingFile.Data) - 1);
-     ifs_Write(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length - 5);
-     ifs_Close(RetrievingFile.FileHandler);
+     ifsWrite(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length - 5);
+     ifsClose(RetrievingFile.FileHandler);
      Leave;
    Else;
-     ifs_Write(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length);
+     ifsWrite(RetrievingFile.FileHandler :%Addr(RetrievingFile.Data) :RetrievingFile.Length);
      Clear RetrievingFile.Data;
    EndIf;
  EndDo;
@@ -447,9 +449,10 @@ DCL-PROC handleClient;
    EndIf;
  EndIf;
  If RestoreMember.ModeMember;
-   RC = system('CPYF FROMFILE(QTEMP/' + %TrimR(RestoreMember.ObjectName) + 
-               ') TOFILE(' + %TrimR(RestoreMember.ObjectLibrary) + '/' + 
-               %TrimR(RestoreMember.ObjectName) + 
+   sendJobLog('+> Copy member');
+   RC = system('CPYF FROMFILE(QTEMP/' + %TrimR(RestoreMember.ObjectName) +
+               ') TOFILE(' + %TrimR(RestoreMember.ObjectLibrary) + '/' +
+               %TrimR(RestoreMember.ObjectName) +
                ') FROMMBR(*ALL) TOMBR(*FROMMBR) MBROPT(*REPLACE)');
    If ( RC <> 0 );
      Data = '*ERROR_RESTORE> ' + %Str(strError(ErrNo));
@@ -602,7 +605,7 @@ END-PROC;
 //**************************************************************************
 DCL-PROC cleanTemp;
 
- ifs_Unlink(P_FILE);
+ ifsUnlink(P_FILE);
  system('CLRLIB LIB(QTEMP)');
 
 END-PROC;

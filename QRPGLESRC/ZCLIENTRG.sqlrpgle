@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018, 2019 Christian Brunner
+//- Copyright (c) 2018 - 2020 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -156,7 +156,7 @@ DCL-PROC manageSendingStuff;
 
  DCL-DS ClientSocket LIKEDS(Socket_T) INZ;
  DCL-DS GSK LIKEDS(GSK_T) INZ;
- DCL-DS StatDS LIKEDS(Stat_T) INZ;
+ DCL-DS StatDS LIKEDS(StatDS_T) INZ;
  //-------------------------------------------------------------------------
 
  // Quickcheck for some necessary parameters
@@ -190,7 +190,7 @@ DCL-PROC manageSendingStuff;
       Clear RC;
    When ( pQualifiedObjectName.ObjectName = '*STMF' ) And ( pStreamFile.Data <> '' )
     And ( %Scan('*' :pStreamfile.Data) = 0 );
-     RC = ifs_Access(%TrimR(pStreamFile.Data) :F_OK);
+     RC = ifsAccess(%TrimR(pStreamFile.Data) :F_OK);
    Other;
      RC = system('CHKOBJ OBJ(' + %TrimR(pQualifiedObjectName.ObjectLibrary) + '/' +
                   %TrimR(pQualifiedObjectName.ObjectName) + ') OBJTYPE(' +
@@ -377,7 +377,7 @@ DCL-PROC manageSendingStuff;
 
  If Not SaveSuccess;
    cleanUpSocket(pUseTLS :ClientSocket.SocketHandler :GSK);
-   ifs_Unlink(%TrimR(pWorkPath));
+   ifsUnlink(%TrimR(pWorkPath));
    system('DLTF FILE(' + %TrimR(pSaveFile.ObjectLibrary) + '/' +
                          %TrimR(pSaveFile.ObjectName) + ')');
    sendDie('Error occured while preparing savefile. See joblog.');
@@ -387,7 +387,7 @@ DCL-PROC manageSendingStuff;
                        %TrimR(pSaveFile.ObjectName) + ')');
 
  // Get fileinformations
- If ( ifs_Stat(%TrimR(pWorkPath) :%Addr(StatDS)) < 0 );
+ If ( ifsStat64(%TrimR(pWorkPath) :%Addr(StatDS)) < 0 );
    Clear StatDS;
  EndIf;
 
@@ -426,20 +426,20 @@ DCL-PROC manageSendingStuff;
 
  // Send object
  sendStatus('Sending data to host ...');
- SendingFile.FileHandler = ifs_Open(%TrimR(pWorkPath) :O_RDONLY + O_LARGEFILE);
+ SendingFile.FileHandler = ifsOpen(%TrimR(pWorkPath) :O_RDONLY + O_LARGEFILE);
  If ( SendingFile.FileHandler < 0 );
    ErrorNumber = ErrNo;
    cleanUpSocket(pUseTLS :ClientSocket.SocketHandler :GSK);
-   ifs_Unlink(%TrimR(pWorkPath));
+   ifsUnlink(%TrimR(pWorkPath));
    sendDie('Error occured while reading file > ' + %Str(strerror(ErrorNumber)));
  EndIf;
 
  DoW ( Loop );
-   SendingFile.Length = ifs_Read(SendingFile.FileHandler :%Addr(SendingFile.Data)
+   SendingFile.Length = ifsRead(SendingFile.FileHandler :%Addr(SendingFile.Data)
                                  :%Size(SendingFile.Data));
    If ( SendingFile.Length < (%Size(SendingFile.Data) - 5) );
-     ifs_Close(SendingFile.FileHandler);
-     ifs_Unlink(%TrimR(pWorkPath));
+     ifsClose(SendingFile.FileHandler);
+     ifsUnlink(%TrimR(pWorkPath));
      SendingFile.Data = %SubSt(SendingFile.Data :1 :SendingFile.Length) + '*EOF>';
      sendData(pUseTLS :ClientSocket.SocketHandler :GSK :%Addr(SendingFile.Data)
               :SendingFile.Length + 5);
