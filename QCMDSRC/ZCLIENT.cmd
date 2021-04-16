@@ -33,7 +33,7 @@
 
              PARM       KWD(RMTSYS) TYPE(*CHAR) LEN(512) VARY(*YES +
                           *INT2) CASE(*MIXED) CHOICE(*PGM) +
-                          CHOICEPGM(WEDSOCKET/ZCMDCHC) +
+                          CHOICEPGM(changelibraryname/ZCMDCHC) +
                           INLPMTLEN(32) PROMPT('IP-Address or +
                           Hostname')
 
