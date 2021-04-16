@@ -3,7 +3,7 @@
                           HLPID(*CMD) HLPPNLGRP(changelibraryname/ZCLIENT) +
                           PRDLIB(changelibraryname)
 
-             PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) +
+             PARM       KWD(OBJ) TYPE(OBJLIB) MIN(1) MAX(1) +
                           PROMPT('Objectname')
 
              PARM       KWD(OBJTYPE) TYPE(*CHAR) LEN(10) RSTD(*YES) +
@@ -32,9 +32,10 @@
                           INLPMTLEN(80) PROMPT('Streamfile')
 
              PARM       KWD(RMTSYS) TYPE(*CHAR) LEN(512) VARY(*YES +
-                          *INT2) CASE(*MIXED) +
-                          CHOICE('Remotesystem') INLPMTLEN(32) +
-                          PROMPT('IP-Address or Hostname')
+                          *INT2) CASE(*MIXED) CHOICE(*PGM) +
+                          CHOICEPGM(WEDSOCKET/ZCMDCHC) +
+                          INLPMTLEN(32) PROMPT('IP-Address or +
+                          Hostname')
 
              PARM       KWD(AUTH) TYPE(*CHAR) LEN(7) RSTD(*YES) +
                           DFT(*USRPRF) VALUES(*USRPRF *NONE) +
