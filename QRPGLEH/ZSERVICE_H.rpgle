@@ -27,6 +27,7 @@
 
 DCL-PR sendData INT(10) OVERLOAD(sendDataClient :sendDataServer);
 DCL-PR sendDataClient INT(10);
+ // Send data for client application
  UseTLS IND CONST;
  SocketHandler INT(10) CONST;
  GSK LIKEDS(GSK_T) CONST;
@@ -34,6 +35,7 @@ DCL-PR sendDataClient INT(10);
  Length INT(10) CONST;
 END-PR;
 DCL-PR sendDataServer INT(10);
+ // Send data for server application
  UseTLS IND CONST;
  Socket LIKEDS(SocketServer_T) CONST;
  GSK LIKEDS(GSK_T) CONST;
@@ -41,9 +43,9 @@ DCL-PR sendDataServer INT(10);
  Length INT(10) CONST;
 END-PR;
 
-
 DCL-PR receiveData INT(10) OVERLOAD(receiveDataClient :receiveDataServer);
 DCL-PR receiveDataClient INT(10);
+ // Receive data for client application
  UseTLS IND CONST;
  SocketHandler INT(10) CONST;
  GSK LIKEDS(GSK_T) CONST;
@@ -51,6 +53,7 @@ DCL-PR receiveDataClient INT(10);
  Length INT(10) VALUE;
 END-PR;
 DCL-PR receiveDataServer INT(10);
+ // Receive data for server application
  UseTLS IND CONST;
  Socket LIKEDS(SocketServer_T) CONST;
  GSK LIKEDS(GSK_T) CONST;
@@ -59,6 +62,7 @@ DCL-PR receiveDataServer INT(10);
 END-PR;
 
 DCL-PR makeListenerServer;
+ // Make a new listener
  Port UNS(5) CONST;
  UseTLS IND;
  AppID CHAR(32) CONST;
@@ -70,6 +74,7 @@ DCL-PR makeListenerServer;
 END-PR;
 
 DCL-PR acceptConnectionServer;
+ // Acceppt new connections to server
  UseTLS IND CONST;
  ConnectFrom POINTER CONST;
  Socket LIKEDS(SocketServer_T);
@@ -78,16 +83,19 @@ DCL-PR acceptConnectionServer;
 END-PR;
 
 DCL-PR generateGSKEnvironmentServer IND;
+ // Generate GSK environment for server application
  GSK LIKEDS(GSK_T);
  AppID CHAR(32) CONST;
  UseClientCert IND CONST;
 END-PR;
 
 DCL-PR generateGSKEnvironmentClient LIKEDS(GSK_T);
+ // Generate GSK environment for client application
  AppID CHAR(32) CONST;
 END-PR;
 
 DCL-PR initGSKEnvironmentClient;
+ // Initialize GSK environment for client application
  UseTLS IND CONST;
  SocketHandler INT(10) CONST;
  GSK LIKEDS(GSK_T);
@@ -95,34 +103,41 @@ END-PR;
 
 DCL-PR cleanUpSocket OVERLOAD(cleanUpSocketClient :cleanUpSocketServer);
 DCL-PR cleanUpSocketClient;
+ // Clean socket stuff for client application
  UseTLS IND CONST;
  SocketHandler INT(10) CONST;
  GSK LIKEDS(GSK_T);
 END-PR;
 DCL-PR cleanUpSocketServer;
+ // Clean socket stuff for server application
  UseTLS IND CONST;
  SocketHandler INT(10) CONST;
  GSKHandler POINTER;
 END-PR;
 
 DCL-PR cleanTempServer;
+ // Clean up temporary stuff for server application
  LinkName CHAR(128) CONST;
 END-PR;
 
 DCL-PR doShutDown IND;
+// Check for shut down
  UseTLS IND CONST;
  Socket LIKEDS(SocketServer_T) CONST;
  GSK LIKEDS(GSK_T);
 END-PR;
 
 DCL-PR sendDie;
+ // Exit program with message
  Message CHAR(256) CONST;
 END-PR;
 
 DCL-PR sendJobLog;
+ // Send message to the current joblog
  Message CHAR(256) CONST;
 END-PR;
 
 DCL-PR sendStatus;
+ // Send status message to current session
  Message CHAR(256) CONST;
 END-PR;
