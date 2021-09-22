@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2019 Christian Brunner
+//- Copyright (c) 2019, 2021 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -25,14 +25,30 @@
 
 /DEFINE Z_HEADER
 
+
+/INCLUDE QRPGLECPY,PSDS
+/INCLUDE QRPGLECPY,BOOLIC
+
+
+/INCLUDE QRPGLECPY,SOCKET_H
+/INCLUDE QRPGLECPY,GSKSSL_H
+/INCLUDE QRPGLECPY,IFS_H
+/INCLUDE QRPGLECPY,QMHSNDPM
+/INCLUDE QRPGLECPY,QMHRTVM
+/INCLUDE QRPGLECPY,SYSTEM
+/INCLUDE QRPGLECPY,ERRNO_H
+
+
 DCL-DS QualifiedObjectName_T TEMPLATE QUALIFIED;
   ObjectName CHAR(10);
   ObjectLibrary CHAR(10);
 END-DS;
+
 DCL-DS CommandVaryingParm_T TEMPLATE QUALIFIED;
   Length UNS(5);
   Data CHAR(510);
 END-DS;
+
 /IF DEFINED (IS_ZCLIENT)
 DCL-DS Socket_T TEMPLATE QUALIFIED;
   ConnectTo POINTER;
@@ -40,6 +56,7 @@ DCL-DS Socket_T TEMPLATE QUALIFIED;
   Address UNS(10);
   AddressLength INT(10);
 END-DS;
+
 /ELSEIF DEFINED (IS_ZSERVER)
 DCL-DS Socket_T TEMPLATE QUALIFIED;
   Listener INT(10);
@@ -47,19 +64,23 @@ DCL-DS Socket_T TEMPLATE QUALIFIED;
   ClientIP CHAR(17);
 END-DS;
 /ENDIF
+
 DCL-DS GSK_T TEMPLATE QUALIFIED;
   Environment POINTER;
   SecureHandler POINTER;
 END-DS;
+
 DCL-DS MessageHandling_T TEMPLATE QUALIFIED;
   Length INT(10);
   Key CHAR(4);
   Error CHAR(128);
 END-DS;
+
 DCL-DS Lingering_T TEMPLATE QUALIFIED;
   LingerHandler POINTER;
   Length INT(10);
 END-DS;
+
 DCL-DS Error_T TEMPLATE QUALIFIED;
   NbrBytesPrv INT(10) INZ(%SIZE(Error_T));
   NbrBytesAvl INT(10);

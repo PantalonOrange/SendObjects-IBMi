@@ -3,8 +3,6 @@
 Sending objects as savefile between different IBMi with server-client application over TCP/IP and tls-encrypted.  
 Authentification over system userprofile and password (transfered as TDES encrypted string) or as anonymous authentication.  
 
-These programs using different headers from the socket api owned by scott klement  
--> https://www.scottklement.com/rpg/socktut/socktut.savf  
 All headers are included (QRPGLECPY)
 
 ### Command ZCLIENT

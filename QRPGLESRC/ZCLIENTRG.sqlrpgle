@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018 - 2020 Christian Brunner
+//- Copyright (c) 2018 - 2021 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -22,8 +22,6 @@
 //  Created by BRC on 30.08.2018 - 29.05.2019
 
 // Socketclient to send objects over tls to another IBMi
-//   I use the socket_h header from scott klement - (c) Scott Klement
-//   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
 // Changes:
@@ -33,6 +31,8 @@
 //  30.10.2019  Editwords and other small changes
 //  19.11.2019  Don't update the object history by save and add member-support
 //  16.12.2019  Bugfix checks because length var is not 0 when data is ''
+//  23.02.2021  Add option for client-certification
+//  22.09.2021  Change SOCKET_H to free
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -55,21 +55,12 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
   DataCompression CHAR(7) CONST;
   SaveFile LIKEDS(QualifiedObjectName_T) CONST;
   WorkPath CHAR(128) CONST;
+  AppID CHAR(32) CONST;
 END-PR;
 
 
-/INCLUDE QRPGLECPY,SOCKET_H
-/INCLUDE QRPGLECPY,GSKSSL_H
-/INCLUDE QRPGLECPY,IFS_H
-/INCLUDE QRPGLECPY,QMHSNDPM
-/INCLUDE QRPGLECPY,SYSTEM
-/INCLUDE QRPGLECPY,ERRNO_H
-
-/INCLUDE QRPGLECPY,PSDS
-/INCLUDE QRPGLECPY,BOOLIC
-
 /DEFINE IS_ZCLIENT
-/INCLUDE QRPGLECPY,Z_H
+/INCLUDE QRPGLEH,Z_H
 
 
 //#########################################################################
@@ -90,12 +81,13 @@ DCL-PROC Main;
    pDataCompression CHAR(7) CONST;
    pSaveFile LIKEDS(QualifiedObjectName_T) CONST;
    pWorkPath CHAR(128) CONST;
+   pAppID CHAR(32) CONST;
  END-PI;
  //-------------------------------------------------------------------------
 
  *INLR = TRUE;
 
- If ( %Parms() = 15 ) And ( pQualifiedObjectName <> '' );
+ If ( %Parms() = 16 ) And ( pQualifiedObjectName <> '' );
    manageSendingStuff(pQualifiedObjectName
                       :pObjectType
                       :pMemberName
@@ -110,7 +102,8 @@ DCL-PROC Main;
                       :pUseTLS
                       :pDataCompression
                       :pSaveFile
-                      :pWorkPath);
+                      :pWorkPath
+                      :pAppID);
  EndIf;
 
  Return;
@@ -136,6 +129,7 @@ DCL-PROC manageSendingStuff;
    pDataCompression CHAR(7) CONST;
    pSaveFile LIKEDS(QualifiedObjectName_T) CONST;
    pWorkPath CHAR(128) CONST;
+   pAppID CHAR(32) CONST;
  END-PI;
 
  DCL-S Loop IND INZ(TRUE);
@@ -202,34 +196,34 @@ DCL-PROC manageSendingStuff;
  EndIf;
 
  // Search adress via hostname
- ClientSocket.Address = inet_Addr(%TrimR(pRemoteSystem.Data));
+ ClientSocket.Address = inet_Address(%TrimR(pRemoteSystem.Data));
  If ( ClientSocket.Address = INADDR_NONE );
-   P_HostEnt = getHostByName(%TrimR(pRemoteSystem.Data));
-   If ( P_HostEnt = *NULL );
+   pHostEntry = getHostByName(%TrimR(pRemoteSystem.Data));
+   If ( pHostEntry = *NULL );
      sendDie('Unable to find selected host.');
    EndIf;
-   ClientSocket.Address = H_Addr;
+   ClientSocket.Address = HAddress;
  EndIf;
 
  If pUseTLS;
-   GSK = generateGSKEnvironment();
+   GSK = generateGSKEnvironment(pAppID);
  EndIf;
 
  // Create socket
  ClientSocket.SocketHandler = socket(AF_INET :SOCK_STREAM :IPPROTO_IP);
  If ( ClientSocket.SocketHandler < 0 );
    cleanUpSocket(pUseTLS :ClientSocket.SocketHandler :GSK);
-   sendDie(%Str(strerror(ErrNo)));
+   sendDie(%Str(strError(ErrNo)));
  EndIf;
 
- ClientSocket.AddressLength = %Size(SockAddr);
+ ClientSocket.AddressLength = %Size(SocketAddress);
  ClientSocket.ConnectTo = %Alloc(ClientSocket.AddressLength);
 
- P_SockAddr = ClientSocket.ConnectTo;
- Sin_Family = AF_INET;
- Sin_Addr = ClientSocket.Address;
- Sin_Port = pPort;
- Sin_Zero = *ALLx'00';
+ pSocketAddress = ClientSocket.ConnectTo;
+ SocketAddressIn.Family = AF_INET;
+ SocketAddressIn.Address = ClientSocket.Address;
+ SocketAddressIn.Port = pPort;
+ SocketAddressIn.Zero = *ALLx'00';
 
  // Connect to host
  If ( connect(ClientSocket.SocketHandler :ClientSocket.ConnectTo
@@ -477,12 +471,23 @@ END-PROC;
 
 //**************************************************************************
 DCL-PROC generateGSKEnvironment;
- DCL-PI *N LIKEDS(GSK_T) END-PI;
+ DCL-PI *N LIKEDS(GSK_T);
+   pAppID CHAR(32) CONST;
+ END-PI;
+
+ DCL-C APP_ID 'SND_IBMI_APP_CLIENT';
 
  DCL-S RC INT(10) INZ;
+ DCL-S AppID VARCHAR(32) INZ;
 
  DCL-DS GSK LIKEDS(GSK_T) INZ;
  //-------------------------------------------------------------------------
+
+ If ( pAppID = '*DFT' );
+   AppID = APP_ID;
+ Else;
+   AppID = pAppID;
+ EndIf;
 
  RC = gsk_Environment_Open(GSK.Environment);
  If ( RC <> GSK_OK );
@@ -490,6 +495,13 @@ DCL-PROC generateGSKEnvironment;
  EndIf;
 
  gsk_Attribute_Set_Buffer(GSK.Environment :GSK_KEYRING_FILE :'*SYSTEM' :0);
+
+ If ( AppID <> '*NONE' );
+   RC = gsk_Attribute_Set_Buffer(GSK.Environment :GSK_OS400_APPLICATION_ID :AppID :0);
+   If ( RC <> GSK_OK );
+     sendDie(%Str(gsk_StrError(RC)));
+   EndIf;
+ EndIf;
 
  gsk_Attribute_Set_eNum(GSK.Environment :GSK_SESSION_TYPE :GSK_CLIENT_SESSION);
 
@@ -563,18 +575,17 @@ DCL-PROC sendData;
 
  DCL-S RC INT(10) INZ;
  DCL-S GSKLength INT(10) INZ;
- DCL-S Buffer CHAR(32766) BASED(pData);
  //-------------------------------------------------------------------------
 
  If pUseTLS;
-   RC = gsk_Secure_Soc_Write(pGSK.SecureHandler :%Addr(Buffer) :pLength :GSKLength);
+   RC = gsk_Secure_Soc_Write(pGSK.SecureHandler :pData :pLength :GSKLength);
    If ( RC = GSK_OK );
      RC = GSKLength;
    Else;
      Clear RC;
    EndIf;
  Else;
-   RC = send(pSocketHandler :%Addr(Buffer) :pLength :0);
+   RC = send(pSocketHandler :pData :pLength :0);
  EndIf;
 
  Return RC;
@@ -623,7 +634,7 @@ DCL-PROC cleanUpSocket;
    gsk_Secure_Soc_Close(pGSK.SecureHandler);
    gsk_Environment_Close(pGSK.Environment);
  EndIf;
- close_Socket(pSocketHandler);
+ closeSocket(pSocketHandler);
 
 END-PROC;
 

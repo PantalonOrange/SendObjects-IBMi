@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018 - 2020 Christian Brunner
+//- Copyright (c) 2018 - 2021 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -22,14 +22,14 @@
 //  Created by BRC on 25.07.2018 - 29.05.2019
 
 // Socketclient to send objects over tls to another IBMi
-//   I use the socket_h header from scott klement - (c) Scott Klement
-//   https://www.scottklement.com/rpg/socktut/socktut.savf
 
 
 // Changes:
 //  23.10.2019  Cosmetic changes
 //  30.10.2019  Editwords and other small changes
 //  19.11.2019  Add member-support
+//  23.02.2021  Add option for client-certification
+//  22.09.2021  Change SOCKET_H to free
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -40,22 +40,11 @@ DCL-PR Main EXTPGM('ZSERVERRG');
   Port UNS(5) CONST;
   UseTLS IND CONST;
   AppID CHAR(32) CONST;
-  Authentication CHAR(7) CONST;
+  Authentication CHAR(12) CONST;
 END-PR;
 
-/INCLUDE QRPGLECPY,SOCKET_H
-/INCLUDE QRPGLECPY,GSKSSL_H
-/INCLUDE QRPGLECPY,IFS_H
-/INCLUDE QRPGLECPY,QMHSNDPM
-/INCLUDE QRPGLECPY,QMHRTVM
-/INCLUDE QRPGLECPY,SYSTEM
-/INCLUDE QRPGLECPY,ERRNO_H
-
-/INCLUDE QRPGLECPY,PSDS
-/INCLUDE QRPGLECPY,BOOLIC
-
 /DEFINE IS_ZSERVER
-/INCLUDE QRPGLECPY,Z_H
+/INCLUDE QRPGLEH,Z_H
 
 
 //#########################################################################
@@ -64,7 +53,7 @@ DCL-PROC Main;
    pPort UNS(5) CONST;
    pUseTLS IND CONST;
    pAppID CHAR(32) CONST;
-   pAuthentication CHAR(7) CONST;
+   pAuthentication CHAR(12) CONST;
  END-PI;
 
  DCL-S UseTLS IND INZ(FALSE);
@@ -78,7 +67,8 @@ DCL-PROC Main;
  *INLR = TRUE;
  UseTLS = pUseTLS;
 
- makeListener(pPort :UseTLS :pAppID :ConnectFrom :Socket :GSK :Lingering);
+ makeListener(pPort :UseTLS :pAppID :(pAuthentication = '*USRPRF_CERT')
+              :ConnectFrom :Socket :GSK :Lingering);
 
  DoU doShutDown(UseTLS :Socket :GSK);
 
@@ -122,6 +112,7 @@ DCL-PROC makeListener;
    pPort UNS(5) CONST;
    pUseTLS IND;
    pAppID CHAR(32) CONST;
+   pUseClientCert IND CONST;
    pConnectFrom POINTER;
    pSocket LIKEDS(Socket_T);
    pGSK LIKEDS(GSK_T);
@@ -135,13 +126,13 @@ DCL-PROC makeListener;
  //-------------------------------------------------------------------------
 
  If pUseTLS;
-   pUseTLS = generateGSKEnvironment(pGSK :pAppID);
+   pUseTLS = generateGSKEnvironment(pGSK :pAppID :pUseClientCert);
    If Not pUseTLS;
      sendJobLog('+> Server was not able to generate gsk-environment. Continue without tls');
    EndIf;
  EndIf;
 
- Length = %Size(SockAddr_In);
+ Length = %Size(SocketAddressIn);
  BindTo = %Alloc(Length);
  pConnectFrom = %Alloc(Length);
 
@@ -155,16 +146,16 @@ DCL-PROC makeListener;
 
  pLingering.Length = %Size(Linger);
  pLingering.LingerHandler = %Alloc(pLingering.Length);
- p_Linger = pLingering.LingerHandler;
- l_OnOff = 1;
- l_Linger = 1;
+ pLinger = pLingering.LingerHandler;
+ Linger.OnOff = 1;
+ Linger.Linger = 1;
  setSockOpt(pSocket.Listener :SOL_SOCKET :SO_LINGER :pLingering.LingerHandler :pLingering.Length);
 
- p_SockAddr = BindTo;
- Sin_Family = AF_INET;
- Sin_Addr = INADDR_ANY;
- Sin_Port = pPort;
- Sin_Zero = *ALLx'00';
+ pSocketAddress = BindTo;
+ SocketAddressIn.Family = AF_INET;
+ SocketAddressIn.Address = INADDR_ANY;
+ SocketAddressIn.Port = pPort;
+ SocketAddressIn.Zero = *ALLx'00';
 
  If ( bind(pSocket.Listener :BindTo :Length) < 0 );
    ErrorNumber = ErrNo;
@@ -196,9 +187,9 @@ DCL-PROC acceptConnection;
  DCL-S ErrorNumber INT(10) INZ;
  //-------------------------------------------------------------------------
 
- DoU ( Length = %Size(SockAddr_In) );
+ DoU ( Length = %Size(SocketAddressIn) );
 
-   Length = %Size(SockAddr_In);
+   Length = %Size(SocketAddressIn);
    pSocket.Talk  = accept(pSocket.Listener :pConnectFrom :Length);
    If ( pSocket.Talk < 0 );
      sendJobLog('accept(): ' + %Str(strError(ErrNo)));
@@ -206,11 +197,11 @@ DCL-PROC acceptConnection;
      Return;
    EndIf;
 
-   l_OnOff = 1;
-   l_Linger = 10;
+   Linger.OnOff = 1;
+   Linger.Linger = 10;
    setSockOpt(pSocket.Talk :SOL_SOCKET :SO_LINGER :pLingering.LingerHandler :pLingering.Length);
 
-   If ( Length <> %Size(SockAddr_In));
+   If ( Length <> %Size(SocketAddressIn));
      cleanUp_Socket(pUseTLS :pSocket.Listener :pGSK.SecureHandler);
      Return;
    EndIf;
@@ -235,8 +226,8 @@ DCL-PROC acceptConnection;
    EndIf;
  EndIf;
 
- P_SockAddr = pConnectFrom;
- pSocket.ClientIP = %Str(inet_NTOA(Sin_Addr));
+ pSocketAddress = pConnectFrom;
+ pSocket.ClientIP = %Str(inet_NToa(SocketAddressIn.Address));
 
 END-PROC;
 
@@ -244,7 +235,7 @@ END-PROC;
 DCL-PROC handleClient;
  DCL-PI *N;
    pUseTLS IND CONST;
-   pAuthentication CHAR(7) CONST;
+   pAuthentication CHAR(12) CONST;
    pSocket LIKEDS(Socket_T) CONST;
    pGSK LIKEDS(GSK_T);
  END-PI;
@@ -299,7 +290,7 @@ DCL-PROC handleClient;
  EndIf;
 
  // User and password receive and check / change to called user when authentication is *USRPRF
- If ( pAuthentication = '*USRPRF' );
+ If ( %SubSt(pAuthentication :1 :7) = '*USRPRF' );
    RC = receiveData(pUseTLS :pSocket :pGSK :%Addr(Data) :%Size(Data));
    If ( RC <= 0 ) Or ( Data = '' );
      Data = '*NOLOGINDATA>';
@@ -468,7 +459,7 @@ DCL-PROC handleClient;
  EndIf;
 
  // Switch back to original userprofile when authentication is *USRPRF
- If ( pAuthentication = '*USRPRF' );
+ If ( %SubSt(pAuthentication :1 :7) = '*USRPRF' );
    QSYGETPH(OriginalUser :'*NOPWD' :SwitchUserProfile.UserHandler :ErrorDS);
    QWTSETP(SwitchUserProfile.UserHandler :ErrorDS);
  EndIf;
@@ -482,6 +473,7 @@ DCL-PROC generateGSKEnvironment;
  DCL-PI *N IND;
    pGSK LIKEDS(GSK_T);
    pAppID CHAR(32) CONST;
+   pUseClientCert IND CONST;
  END-PI;
 
  DCL-C APP_ID 'SND_IBMI_APP';
@@ -520,8 +512,13 @@ DCL-PROC generateGSKEnvironment;
  EndIf;
 
  If Success;
-   Success = ( gsk_Attribute_Set_Enum(pGSK.Environment :GSK_CLIENT_AUTH_TYPE
-                                      :GSK_CLIENT_AUTH_FULL) = GSK_OK );
+   If pUseClientCert;
+     Success = ( gsk_Attribute_Set_Enum(pGSK.Environment :GSK_CLIENT_AUTH_TYPE
+                                        :GSK_IBMI_CLIENT_AUTH_REQUIRED) = GSK_OK );
+   Else;
+     Success = ( gsk_Attribute_Set_Enum(pGSK.Environment :GSK_CLIENT_AUTH_TYPE
+                                        :GSK_CLIENT_AUTH_PASSTHRU) = GSK_OK );
+   EndIf;
    If Not Success;
      sendJobLog('gsk_Attribute_Set_Enum(): ' + %Str(gsk_StrError(ErrNo)));
      gsk_Environment_Close(pGSK.Environment);
@@ -552,17 +549,16 @@ DCL-PROC sendData;
 
  DCL-S RC INT(10) INZ;
  DCL-S GSKLength INT(10) INZ;
- DCL-S Buffer CHAR(32766) BASED(pData);
  //-------------------------------------------------------------------------
 
  If pUseTLS;
-   RC = gsk_Secure_Soc_Write(pGSK.SecureHandler :%Addr(Buffer) :pLength :GSKLength);
+   RC = gsk_Secure_Soc_Write(pGSK.SecureHandler :pData :pLength :GSKLength);
    If ( RC <> GSK_OK );
      sendJobLog('gsk_Secure_Soc_Write(): ' + %Str(gsk_StrError(ErrNo)));
    EndIf;
    RC = GSKLength;
  Else;
-   RC = send(pSocket.Talk :%Addr(Buffer) :pLength :0);
+   RC = send(pSocket.Talk :pData :pLength :0);
  EndIf;
 
  Return RC;
@@ -623,7 +619,7 @@ DCL-PROC cleanUp_Socket;
    GSK_Secure_Soc_Close(pGSKHandler);
  EndIf;
 
- Close_Socket(pSocketHandler);
+ closeSocket(pSocketHandler);
 
 END-PROC;
 
