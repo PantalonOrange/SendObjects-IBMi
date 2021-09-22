@@ -33,10 +33,11 @@
 //  16.12.2019  Bugfix checks because length var is not 0 when data is ''
 //  23.02.2021  Add option for client-certification
 //  22.09.2021  Change SOCKET_H to free
+//  22.09.2021  Move the most procedures to a new serviceprogram
 
 
 /INCLUDE QRPGLECPY,H_SPECS
-CTL-OPT MAIN(Main);
+CTL-OPT MAIN(Main) BNDDIR('ZSERVICE');
 
 
 DCL-PR Main EXTPGM('ZCLIENTRG');
@@ -59,7 +60,6 @@ DCL-PR Main EXTPGM('ZCLIENTRG');
 END-PR;
 
 
-/DEFINE IS_ZCLIENT
 /INCLUDE QRPGLEH,Z_H
 
 
@@ -148,7 +148,7 @@ DCL-PROC manageSendingStuff;
    Bytes UNS(20);
  END-DS;
 
- DCL-DS ClientSocket LIKEDS(Socket_T) INZ;
+ DCL-DS ClientSocket LIKEDS(SocketClient_T) INZ;
  DCL-DS GSK LIKEDS(GSK_T) INZ;
  DCL-DS StatDS LIKEDS(StatDS_T) INZ;
  //-------------------------------------------------------------------------
@@ -206,7 +206,7 @@ DCL-PROC manageSendingStuff;
  EndIf;
 
  If pUseTLS;
-   GSK = generateGSKEnvironment(pAppID);
+   GSK = generateGSKEnvironmentClient(pAppID);
  EndIf;
 
  // Create socket
@@ -234,7 +234,7 @@ DCL-PROC manageSendingStuff;
  EndIf;
 
  If pUseTLS;
-   initGSKEnvironment(pUseTLS :ClientSocket.SocketHandler :GSK);
+   initGSKEnvironmentClient(pUseTLS :ClientSocket.SocketHandler :GSK);
  EndIf;
 
  // Send protocoll and session-name
@@ -466,209 +466,6 @@ DCL-PROC manageSendingStuff;
 
  Return;
 
-
-END-PROC;
-
-//**************************************************************************
-DCL-PROC generateGSKEnvironment;
- DCL-PI *N LIKEDS(GSK_T);
-   pAppID CHAR(32) CONST;
- END-PI;
-
- DCL-C APP_ID 'SND_IBMI_APP_CLIENT';
-
- DCL-S RC INT(10) INZ;
- DCL-S AppID VARCHAR(32) INZ;
-
- DCL-DS GSK LIKEDS(GSK_T) INZ;
- //-------------------------------------------------------------------------
-
- If ( pAppID = '*DFT' );
-   AppID = APP_ID;
- Else;
-   AppID = pAppID;
- EndIf;
-
- RC = gsk_Environment_Open(GSK.Environment);
- If ( RC <> GSK_OK );
-   sendDie(%Str(gsk_StrError(RC)));
- EndIf;
-
- gsk_Attribute_Set_Buffer(GSK.Environment :GSK_KEYRING_FILE :'*SYSTEM' :0);
-
- If ( AppID <> '*NONE' );
-   RC = gsk_Attribute_Set_Buffer(GSK.Environment :GSK_OS400_APPLICATION_ID :AppID :0);
-   If ( RC <> GSK_OK );
-     sendDie(%Str(gsk_StrError(RC)));
-   EndIf;
- EndIf;
-
- gsk_Attribute_Set_eNum(GSK.Environment :GSK_SESSION_TYPE :GSK_CLIENT_SESSION);
-
- gsk_Attribute_Set_eNum(GSK.Environment :GSK_SERVER_AUTH_TYPE :GSK_SERVER_AUTH_PASSTHRU);
- gsk_Attribute_Set_eNum(GSK.Environment :GSK_CLIENT_AUTH_TYPE :GSK_CLIENT_AUTH_PASSTHRU);
-
- gsk_Attribute_Set_eNum(GSK.Environment :GSK_PROTOCOL_SSLV2 :GSK_PROTOCOL_SSLV2_OFF);
- gsk_Attribute_Set_eNum(GSK.Environment :GSK_PROTOCOL_SSLV3 :GSK_PROTOCOL_SSLV3_OFF);
- gsk_Attribute_Set_eNum(GSK.Environment :GSK_PROTOCOL_TLSV1 :GSK_PROTOCOL_TLSV1_OFF);
- gsk_Attribute_Set_eNum(GSK.Environment :GSK_PROTOCOL_TLSV1_1 :GSK_FALSE);
- gsk_Attribute_Set_eNum(GSK.Environment :GSK_PROTOCOL_TLSV1_2 :GSK_TRUE);
-
- RC = gsk_Environment_Init(GSK.Environment);
- If ( RC <> GSK_OK );
-   gsk_Environment_Close(GSK.Environment);
-   sendDie(%Str(gsk_StrError(RC)));
- EndIf;
-
- Return GSK;
-
-END-PROC;
-
-//**************************************************************************
-DCL-PROC initGSKEnvironment;
- DCL-PI *N;
-   pUseTLS IND CONST;
-   pSocketHandler INT(10) CONST;
-   pGSK LIKEDS(GSK_T);
- END-PI;
-
- DCL-S RC INT(10) INZ;
- //-------------------------------------------------------------------------
-
-   sendStatus('Try to make handshake with the host ...');
-   RC = gsk_Secure_Soc_Open(pGSK.Environment :pGSK.SecureHandler);
-   If ( RC <> GSK_OK );
-     cleanUpSocket(pUseTLS :pSocketHandler :pGSK);
-     sendDie(%Str(gsk_StrError(RC)));
-   EndIf;
-
-   RC = gsk_Attribute_Set_Numeric_Value(pGSK.SecureHandler :GSK_FD :pSocketHandler);
-   If ( RC <> GSK_OK );
-     cleanUpSocket(pUseTLS :pSocketHandler :pGSK);
-     sendDie(%Str(gsk_StrError(RC)));
-   EndIf;
-
-   RC = gsk_Attribute_Set_Numeric_Value(pGSK.SecureHandler :GSK_HANDSHAKE_TIMEOUT :10);
-   If ( RC <> GSK_OK );
-     cleanUpSocket(pUseTLS :pSocketHandler :pGSK);
-     sendDie(%Str(gsk_StrError(RC)));
-   EndIf;
-
-   RC = gsk_Secure_Soc_Init(pGSK.SecureHandler);
-   If ( RC <> GSK_OK );
-     cleanUpSocket(pUseTLS :pSocketHandler :pGSK);
-     sendDie(%Str(gsk_StrError(RC)));
-   EndIf;
-
-END-PROC;
-
-
-//**************************************************************************
-DCL-PROC sendData;
- DCL-PI *N INT(10);
-   pUseTLS IND CONST;
-   pSocketHandler INT(10) CONST;
-   pGSK LIKEDS(GSK_T) CONST;
-   pData POINTER VALUE;
-   pLength INT(10) CONST;
- END-PI;
-
- DCL-S RC INT(10) INZ;
- DCL-S GSKLength INT(10) INZ;
- //-------------------------------------------------------------------------
-
- If pUseTLS;
-   RC = gsk_Secure_Soc_Write(pGSK.SecureHandler :pData :pLength :GSKLength);
-   If ( RC = GSK_OK );
-     RC = GSKLength;
-   Else;
-     Clear RC;
-   EndIf;
- Else;
-   RC = send(pSocketHandler :pData :pLength :0);
- EndIf;
-
- Return RC;
-
-END-PROC;
-
-//**************************************************************************
-DCL-PROC receiveData;
- DCL-PI *N INT(10);
-   pUseTLS IND CONST;
-   pSocketHandler INT(10) CONST;
-   pGSK LIKEDS(GSK_T) CONST;
-   pData POINTER VALUE;
-   pLength INT(10) VALUE;
- END-PI;
-
- DCL-S RC INT(10) INZ;
- DCL-S GSKLength INT(10) INZ;
- DCL-S Buffer CHAR(32766) BASED(pData);
- //-------------------------------------------------------------------------
-
- If pUseTLS;
-   RC = gsk_Secure_Soc_Read(pGSK.SecureHandler :%Addr(Buffer) :pLength :GSKLength);
-   If ( RC = GSK_OK ) And ( GSKLength > 0 );
-     Buffer = %SubSt(Buffer :1 :GSKLength);
-   EndIf;
-   RC = GSKLength;
- Else;
-   RC = recv(pSocketHandler :%Addr(Buffer) :pLength :0);
- EndIf;
-
- Return RC;
-
-END-PROC;
-
-//**************************************************************************
-DCL-PROC cleanUpSocket;
- DCL-PI *N;
-   pUseTLS IND CONST;
-   pSocketHandler INT(10) CONST;
-   pGSK LIKEDS(GSK_T);
- END-PI;
- //-------------------------------------------------------------------------
-
- If pUseTLS;
-   gsk_Secure_Soc_Close(pGSK.SecureHandler);
-   gsk_Environment_Close(pGSK.Environment);
- EndIf;
- closeSocket(pSocketHandler);
-
-END-PROC;
-
-//**************************************************************************
-DCL-PROC sendDie;
- DCL-PI *N;
-   pMessage CHAR(256) CONST;
- END-PI;
-
- DCL-DS Message LIKEDS(MessageHandling_T) INZ;
- //-------------------------------------------------------------------------
-
- Message.Length = %Len(%TrimR(pMessage));
- If ( Message.Length >= 0 );
-   sendProgramMessage('CPF9897'  :CPFMSG :pMessage: Message.Length
-                      :'*ESCAPE' :'*PGMBDY' :1 :Message.Key :Message.Error);
- EndIf;
-
-END-PROC;
-
-//**************************************************************************
-DCL-PROC sendStatus;
- DCL-PI *N;
-   pMessage CHAR(256) CONST;
- END-PI;
-
- DCL-DS Message LIKEDS(MessageHandling_T) INZ;
- //-------------------------------------------------------------------------
-
- Message.Length = %Len(%TrimR(pMessage));
- If ( Message.Length >= 0 );
-   sendProgramMessage('CPF9897'  :CPFMSG :pMessage :Message.Length
-                      :'*STATUS' :'*EXT' :0 :Message.Key :Message.Error);
- EndIf;
 
 END-PROC;
 
