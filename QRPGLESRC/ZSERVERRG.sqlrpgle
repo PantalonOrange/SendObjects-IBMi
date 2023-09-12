@@ -104,7 +104,7 @@ DCL-PROC handleClient;
  DCL-S RC INT(10) INZ;
  DCL-S IncommingDataStart TIMESTAMP INZ;
  DCL-S IncommingDataEnd TIMESTAMP INZ;
- DCL-S ElapsedTime CHAR(8) INZ;
+ DCL-S ElapsedTime CHAR(14) INZ;
  DCL-S OriginalUser CHAR(10) INZ;
  DCL-S Data CHAR(1024) INZ;
  DCL-S Work CHAR(1024) INZ;

@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION yourlib.returnDurationChar
     in_end TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
  
- RETURNS CHAR(8)   
+ RETURNS CHAR(14)   
  LANGUAGE SQL 
  SPECIFIC yourlib.rtn_dur_c 
  NOT DETERMINISTIC 
@@ -15,7 +15,7 @@ CREATE OR REPLACE FUNCTION yourlib.returnDurationChar
 
 BEGIN 
 
- DECLARE duration DECIMAL(6, 0); 
+ DECLARE duration DECIMAL(10, 4); 
  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION 
  BEGIN 
    RETURN ''; 
@@ -29,8 +29,8 @@ BEGIN
    RETURN '';
  END IF;
 
- SET duration = DECIMAL(ROUND(in_end - in_start, 0), 6, 0);
+ SET duration = DECIMAL(ROUND(in_end - in_start, 4), 10, 4);
 
- RETURN LEFT(DIGITS(duration), 2) CONCAT ':' CONCAT SUBSTR(DIGITS(duration), 3, 2) CONCAT ':' CONCAT RIGHT(DIGITS(duration), 2);
+ RETURN LEFT(DIGITS(duration), 2) CONCAT ':' CONCAT SUBSTR(DIGITS(duration), 3, 2) CONCAT ':' CONCAT SUBSTR(DIGITS(duration), 5, 2) CONCAT ',' CONCAT RIGHT(DIGITS(duration), 4);
 
 END; 
