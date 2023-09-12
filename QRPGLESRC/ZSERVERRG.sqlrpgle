@@ -1,5 +1,5 @@
 **FREE
-//- Copyright (c) 2018 - 2021 Christian Brunner
+//- Copyright (c) 2018 - 2023 Christian Brunner
 //-
 //- Permission is hereby granted, free of charge, to any person obtaining a copy
 //- of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,7 @@
 //  23.02.2021  Add option for client-certification
 //  22.09.2021  Change SOCKET_H to free
 //  22.09.2021  Move the most procedures to a new serviceprogram
+//  12.09.2023  Add elapsed time information for joblog-output
 
 
 /INCLUDE QRPGLECPY,H_SPECS
@@ -101,6 +102,9 @@ DCL-PROC handleClient;
  DCL-S Loop IND INZ(TRUE);
  DCL-S RestoreSuccess IND INZ(TRUE);
  DCL-S RC INT(10) INZ;
+ DCL-S IncommingDataStart TIMESTAMP INZ;
+ DCL-S IncommingDataEnd TIMESTAMP INZ;
+ DCL-S ElapsedTime CHAR(8) INZ;
  DCL-S OriginalUser CHAR(10) INZ;
  DCL-S Data CHAR(1024) INZ;
  DCL-S Work CHAR(1024) INZ;
@@ -242,6 +246,8 @@ DCL-PROC handleClient;
 
  // Handle incomming data
  sendJobLog('+> Waiting for incomming data');
+ IncommingDataStart = %Timestamp();
+
  RetrievingFile.FileHandler = ifsOpen(P_FILE :O_WRONLY + O_TRUNC + O_CREATE + O_LARGEFILE
                               :S_IRWXU + S_IRWXG + S_IRWXO);
 
@@ -268,8 +274,12 @@ DCL-PROC handleClient;
    EndIf;
  EndDo;
 
+ IncommingDataEnd = %Timestamp();
+ Exec SQL SET :ElapsedTime = 
+        returnDurationChar(in_start => :IncommingDataStart, in_end => :IncommingDataEnd);
+
  sendJobLog('+> ' + %Trim(%EditW(%DecH(RetrievingFile.Bytes/1024 :17 :2) :EDTW172)) +
-            ' KB received');
+            ' KB received. Elapsed time: ' + ElapsedTime);
 
  sendJobLog('+> Manage received savefile');
 
