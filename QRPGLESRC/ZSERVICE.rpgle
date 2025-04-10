@@ -30,6 +30,10 @@
 
 
 // Changes:
+// 2021-09-22 BRC: Initial version
+// 2021-09-23 BRC: Added TLS support for client and server
+// 2023-10-01 BRC: Added support for TLS 1.3 and removed TLS 1.0 and 1.1
+// 2025-04-10 BRC: Try some copilot suggestions
 
 
 /DEFINE CTL_SRVPGM
@@ -131,6 +135,16 @@ DCL-PROC sendDataClient EXPORT;
 END-PROC;
 
 //**************************************************************************
+// Procedure: receiveDataClient
+// Purpose:   Receives data from a client socket, with optional TLS support.
+// Parameters:
+//   - pUseTLS: Indicates whether TLS is enabled (IND CONST).
+//   - pSocketHandler: The socket handler for the client connection (INT(10) CONST).
+//   - pGSK: The GSK environment and secure handler (LIKEDS(GSK_T) CONST).
+//   - pData: Pointer to the buffer where the received data will be stored (POINTER VALUE).
+//   - pLength: Length of the data to be received (INT(10) VALUE).
+// Returns:   The number of bytes received, or 0 if an error occurs.
+//**************************************************************************
 DCL-PROC receiveDataClient EXPORT;
  DCL-PI *N INT(10);
   pUseTLS IND CONST;
@@ -181,7 +195,8 @@ DCL-PROC makeListenerServer EXPORT;
  If pUseTLS;
    pUseTLS = generateGSKEnvironmentServer(pGSK :pAppID :pUseClientCert);
    If Not pUseTLS;
-     sendJobLog('+> Server was not able to generate gsk-environment. Continue without tls');
+     sendJobLog('+> Server was not able to generate GSK environment. Error: ' + %Str(gsk_StrError(ErrNo)) +
+                '. Please verify the GSK environment setup and ensure the application ID is correct.');
    EndIf;
  EndIf;
 
@@ -242,7 +257,12 @@ DCL-PROC acceptConnectionServer EXPORT;
 
  DoU ( Length = %Size(SocketAddressIn) );
 
-   Length = %Size(SocketAddressIn);
+   If (pConnectFrom = *NULL);
+     sendJobLog('Error: pConnectFrom is null. Cannot accept connection.');
+     cleanUpSocket(pUseTLS :pSocket.Listener :pGSK.SecureHandler);
+     Return;
+   EndIf;
+
    pSocket.Talk  = accept(pSocket.Listener :pConnectFrom :Length);
    If ( pSocket.Talk < 0 );
      sendJobLog('accept(): ' + %Str(strError(ErrNo)));
@@ -293,12 +313,13 @@ DCL-PROC generateGSKEnvironmentServer EXPORT;
  END-PI;
 
  DCL-C APP_ID 'SND_IBMI_APP';
+ DCL-C DEFAULT_APP_ID '*DFT';
 
  DCL-S Success IND INZ;
  DCL-S AppID VARCHAR(32) INZ;
  //-------------------------------------------------------------------------
 
- If ( pAppID = '*DFT' );
+ If ( pAppID = DEFAULT_APP_ID );
    AppID = APP_ID;
  Else;
    AppID = pAppID;
@@ -383,6 +404,9 @@ DCL-PROC generateGSKEnvironmentClient EXPORT;
  If ( AppID <> '*NONE' );
    RC = gsk_Attribute_Set_Buffer(GSK.Environment :GSK_OS400_APPLICATION_ID :AppID :0);
    If ( RC <> GSK_OK );
+     If ( GSK.Environment <> *NULL );
+       gsk_Environment_Close(GSK.Environment);
+     EndIf;
      sendDie(%Str(gsk_StrError(RC)));
    EndIf;
  EndIf;
@@ -456,8 +480,14 @@ DCL-PROC cleanUpSocketClient EXPORT;
  //-------------------------------------------------------------------------
 
  If pUseTLS;
-   gsk_Secure_Soc_Close(pGSK.SecureHandler);
-   gsk_Environment_Close(pGSK.Environment);
+   If pGSK.SecureHandler <> *NULL;
+     gsk_Secure_Soc_Close(pGSK.SecureHandler);
+   EndIf;
+   If pGSK.Environment <> *NULL;
+     gsk_Environment_Close(pGSK.Environment);
+   Else;
+     sendJobLog('Warning: Attempted to close a null GSK environment.');
+   EndIf;
  EndIf;
  closeSocket(pSocketHandler);
 
@@ -520,9 +550,9 @@ DCL-PROC sendDie EXPORT;
  DCL-DS Message LIKEDS(MessageHandling_T) INZ;
  //-------------------------------------------------------------------------
 
- Message.Length = %Len(%TrimR(pMessage));
- If ( Message.Length >= 0 );
-   sendProgramMessage('CPF9897'  :CPFMSG :pMessage: Message.Length
+ If ( %Len(%TrimR(pMessage)) > 0 );
+   Message.Length = %Len(%TrimR(pMessage));
+   sendProgramMessage('CPF9897' :CPFMSG :pMessage :Message.Length
                       :'*ESCAPE' :'*PGMBDY' :1 :Message.Key :Message.Error);
  EndIf;
 
@@ -537,9 +567,10 @@ DCL-PROC sendJobLog EXPORT;
  DCL-DS Message LIKEDS(MessageHandling_T) INZ;
  //-------------------------------------------------------------------------
 
- Message.Length = %Len(%TrimR(pMessage));
- If ( Message.Length >= 0 );
-   sendProgramMessage('CPF9897' :CPFMSG :pMessage: Message.Length
+ If %Len(%TrimR(pMessage)) > 0;
+   // Send a message to the job log with the specified message.
+   Message.Length = %Len(%TrimR(pMessage));
+   sendProgramMessage('CPF9897' :CPFMSG :pMessage :Message.Length
                       :'*DIAG'  :'*PGMBDY' :1 :Message.Key :Message.Error);
  EndIf;
 
@@ -554,13 +585,15 @@ DCL-PROC sendStatus EXPORT;
  DCL-DS Message LIKEDS(MessageHandling_T) INZ;
  //-------------------------------------------------------------------------
 
- Message.Length = %Len(%TrimR(pMessage));
- If ( Message.Length >= 0 );
+ If %Len(%TrimR(pMessage)) > 0;
+   Message.Length = %Len(%TrimR(pMessage));
    sendProgramMessage('CPF9897'  :CPFMSG :pMessage :Message.Length
                       :'*STATUS' :'*EXT' :0 :Message.Key :Message.Error);
  EndIf;
 
 END-PROC;
 
-/DEFINE LOAD_ERRNO_PROCEDURE
+// Define a macro to load the ERRNO procedure for error handling.
+// This ensures that the ERRNO_H definitions are included for managing system errors.
+ /DEFINE LOAD_ERRNO_PROCEDURE
 /INCLUDE QRPGLECPY,ERRNO_H
